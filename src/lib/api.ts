@@ -48,8 +48,10 @@ export async function getVendorDetails(
   const params = new URLSearchParams();
   if (query) params.set("query", query);
   const qs = params.toString();
+  // vendorId is "/database/supabase" → URL becomes /api/vendors/database/supabase
+  const cleanId = vendorId.startsWith("/") ? vendorId.slice(1) : vendorId;
   return request<VendorProfile>(
-    `/api/vendors/${encodeURIComponent(vendorId)}${qs ? `?${qs}` : ""}`
+    `/api/vendors/${cleanId}${qs ? `?${qs}` : ""}`
   );
 }
 
