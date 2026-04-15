@@ -1,0 +1,46 @@
+{
+  "name": "buyapi-mcp",
+  "version": "0.1.0",
+  "description": "BuyAPI MCP Server — unbiased vendor intelligence for AI coding agents",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "buyapi-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "prepublishOnly": "pnpm build"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "vendor",
+    "stack",
+    "developer-tools",
+    "ai-agents",
+    "vibe-coding",
+    "vendor-intelligence"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TheSnakeFang/buyapi-mcp"
+  },
+  "homepage": "https://buyapi.ai",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.3"
+  }
+}
