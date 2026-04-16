@@ -32,6 +32,10 @@ Current status and planned features for the BuyAPI MCP server.
 - [ ] Usage analytics — which vendors and categories are queried most
 - [ ] Compare tool — head-to-head structured comparison between two specific vendors
 
+## Possible Future
+
+- [ ] `buyapi-cli` — CLI tool for researching vendors, managing profiles, and interacting with the BuyAPI platform from the terminal
+
 ## Requesting Vendors or Categories
 
 Open an issue if you'd like a vendor or category added. Include:
