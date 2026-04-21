@@ -2,11 +2,13 @@
 
 Current status and planned features for the BuyAPI MCP server.
 
-## Current (v0.1)
+## Current (v0.2)
 
-- [x] `resolve-vendor` — search vendors by category with relevance ranking
-- [x] `get-vendor-details` — full vendor profiles with pricing, limits, comparisons
-- [x] `recommend-stack` — complete stack recommendations with cost projections
+- [x] `resolve-vendor` - search vendors by query/category with relevance ranking and unknown-corpus fallback
+- [x] `get-vendor-details` - full vendor profiles with pricing, limits, comparisons, and source provenance
+- [x] `compare-vendors` - head-to-head structured comparison between specific vendors
+- [x] `estimate-cost` - deterministic cost estimates from explicit workload inputs
+- [x] `recommend-stack` - complete stack recommendations with cost projections, decision matrix, assumptions, unknowns, alternatives, and sources
 - [x] Local stdio transport (`npx buyapi-mcp`)
 - [x] API key support for higher rate limits
 
@@ -20,8 +22,8 @@ Current status and planned features for the BuyAPI MCP server.
 ## Planned
 
 ### Near-term
-- [ ] Remote MCP endpoint (`https://mcp.buyapi.ai/mcp`) — no local install needed
-- [ ] npm publish — `npx buyapi-mcp` installable from registry
+- [x] Remote MCP endpoint (`https://mcp.buyapi.ai/mcp`) - no local install needed
+- [x] npm publish - `npx buyapi-mcp` installable from registry
 - [ ] More vendor profiles with full pricing data
 - [ ] CI/CD for automated npm releases on tag
 
@@ -30,7 +32,6 @@ Current status and planned features for the BuyAPI MCP server.
 - [ ] Automated data freshness — pricing pages scraped and verified on schedule
 - [ ] Vendor-claimed profiles — vendors can verify and update their own data
 - [ ] Usage analytics — which vendors and categories are queried most
-- [ ] Compare tool — head-to-head structured comparison between two specific vendors
 
 ## Possible Future
 

@@ -1,151 +1,209 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { searchVendors, getVendorDetails, recommendStack } from "./lib/api.js";
 import {
+  compareVendors,
+  estimateCosts,
+  getVendorDetails,
+  recommendStack,
+  searchVendors,
+} from "./lib/api.js";
+import {
+  formatCostEstimates,
+  formatDecisionMatrix,
   formatSearchResults,
-  formatVendorProfile,
   formatStackRecommendation,
+  formatUnknown,
+  formatVendorProfile,
 } from "./lib/format.js";
 
 const server = new McpServer({
   name: "buyapi-mcp",
-  version: "0.1.0",
+  version: "0.2.0",
 });
 
-// Tool 1: resolve-vendor
+const workloadSchema = z
+  .object({
+    users: z.number().optional(),
+    monthlyActiveUsers: z.number().optional(),
+    storageGb: z.number().optional(),
+    databaseSizeGb: z.number().optional(),
+    emailSendsPerMonth: z.number().optional(),
+    authMau: z.number().optional(),
+    regions: z.number().optional(),
+    teamSeats: z.number().optional(),
+    monthlyTransactions: z.number().optional(),
+    averageTransactionUsd: z.number().optional(),
+    monthlyRevenueUsd: z.number().optional(),
+    notes: z.string().optional(),
+  })
+  .describe(
+    "Explicit workload assumptions for deterministic cost estimates. Missing fields become assumptions, not fabricated precision."
+  );
+
+function errorContent(prefix: string, error: unknown) {
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: `${prefix}: ${error instanceof Error ? error.message : String(error)}`,
+      },
+    ],
+    isError: true,
+  };
+}
+
+function structured(value: unknown): Record<string, unknown> {
+  return value as Record<string, unknown>;
+}
+
 server.tool(
   "resolve-vendor",
-  `Resolves a product category or vendor name into BuyAPI vendor IDs with comparison metadata.
-You MUST call this before 'get-vendor-details' to find the correct vendor ID.
+  `Finds BuyAPI vendor IDs for a user question. Category is optional; provide it when known.
 
-Selection guidance:
-- Choose vendors marked as "Best for" matching the user's stated requirements
-- Consider pricing model alignment with the user's scale expectations
-- Prefer vendors with more recent "Last updated" dates
-- If multiple vendors match equally, return the top 3-4 for the user to evaluate
-
-IMPORTANT: Do not call this tool more than 3 times per question.
-Do not include sensitive information (API keys, passwords) in queries.`,
+Use this for vendor discovery before get-vendor-details, or when the user asks which provider in a category fits their constraints.
+If the category is outside BuyAPI's corpus, the tool returns an explicit "not in corpus yet" result instead of inventing vendors.`,
   {
     query: z
       .string()
-      .describe(
-        "The user's question or task context. Used for relevance ranking. Example: 'I need a database for a real-time collaborative app with 10K users'"
-      ),
+      .describe("The user's question or task context for relevance ranking"),
     category: z
       .string()
-      .describe(
-        "The vendor category to search. Example: 'database', 'auth', 'hosting', 'payments', 'email'"
-      ),
+      .optional()
+      .describe("Optional category: database, auth, hosting, payments, email"),
   },
   async ({ query, category }) => {
     try {
       const data = await searchVendors(query, category);
       return {
-        content: [{ type: "text", text: formatSearchResults(data.results) }],
-      };
-    } catch (error) {
-      return {
+        structuredContent: structured(data.unknown ?? { results: data.results }),
         content: [
           {
             type: "text",
-            text: `Error searching vendors: ${error instanceof Error ? error.message : String(error)}`,
+            text: data.unknown
+              ? formatUnknown(data.unknown)
+              : formatSearchResults(data.results),
           },
         ],
-        isError: true,
       };
+    } catch (error) {
+      return errorContent("Error searching vendors", error);
     }
   }
 );
 
-// Tool 2: get-vendor-details
 server.tool(
   "get-vendor-details",
-  `Retrieves detailed vendor information including pricing, features, limits, and comparisons.
-You must call 'resolve-vendor' first to obtain the vendor ID, UNLESS the user provides
-a vendor ID in the format '/category/vendor-name' directly.
+  `Retrieves detailed vendor information including pricing, features, limits, gotchas, comparisons, and source provenance.
 
-The response includes concrete pricing numbers, free tier limits, and scaling characteristics.
-Use this data to make specific recommendations based on the user's constraints.
-
-IMPORTANT: Do not call this tool more than 3 times per question.`,
+Call resolve-vendor first unless the user already provided a BuyAPI vendor ID like /database/supabase.`,
   {
-    vendorId: z
-      .string()
-      .describe(
-        "BuyAPI vendor ID from resolve-vendor (e.g., '/database/supabase')"
-      ),
+    vendorId: z.string().describe("BuyAPI vendor ID, e.g. /database/supabase"),
     query: z
       .string()
-      .describe("The specific question or use case to focus the response on"),
+      .optional()
+      .describe("Specific question to focus the response on"),
   },
   async ({ vendorId, query }) => {
     try {
       const vendor = await getVendorDetails(vendorId, query);
       return {
+        structuredContent: structured(vendor),
         content: [{ type: "text", text: formatVendorProfile(vendor) }],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error fetching vendor details: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-        isError: true,
-      };
+      return errorContent("Error fetching vendor details", error);
     }
   }
 );
 
-// Tool 3: recommend-stack
+server.tool(
+  "compare-vendors",
+  `Compares two or more BuyAPI vendors for a specific workload or decision.
+
+Use this for head-to-head questions like "Convex vs Supabase vs Neon for a realtime SaaS" or "Stripe vs Paddle for a marketplace".`,
+  {
+    vendorIds: z
+      .array(z.string())
+      .min(2)
+      .describe("BuyAPI vendor IDs, e.g. ['/database/convex', '/database/neon']"),
+    query: z.string().describe("The user's decision context"),
+    workload: workloadSchema.optional(),
+  },
+  async ({ vendorIds, query, workload }) => {
+    try {
+      const result = await compareVendors(vendorIds, query, workload);
+      return {
+        structuredContent: structured(result),
+        content: [
+          { type: "text", text: formatDecisionMatrix(result.decisionMatrix) },
+        ],
+      };
+    } catch (error) {
+      return errorContent("Error comparing vendors", error);
+    }
+  }
+);
+
+server.tool(
+  "estimate-cost",
+  `Produces deterministic monthly cost estimates from BuyAPI pricing data and explicit workload inputs.
+
+Use this when the user asks for cost math. Missing workload fields are returned as assumptions or unknowns instead of being hallucinated.`,
+  {
+    vendorIds: z
+      .array(z.string())
+      .optional()
+      .describe("Optional vendor IDs to estimate directly"),
+    category: z
+      .string()
+      .optional()
+      .describe("Optional category to estimate across the current corpus"),
+    workload: workloadSchema,
+  },
+  async ({ vendorIds, category, workload }) => {
+    try {
+      const result = await estimateCosts({ vendorIds, category, workload });
+      return {
+        structuredContent: structured(result),
+        content: [
+          { type: "text", text: formatCostEstimates(result.estimates) },
+        ],
+      };
+    } catch (error) {
+      return errorContent("Error estimating cost", error);
+    }
+  }
+);
+
 server.tool(
   "recommend-stack",
-  `Recommends a complete technology stack based on project requirements and constraints.
-Returns vendor recommendations for each infrastructure layer with cost projections.
+  `Recommends a complete stack from BuyAPI's corpus with a structured decision matrix, cost estimate, assumptions, unknowns, alternatives, and sources.
 
-Call this when the user is starting a new project and needs full stack guidance.
-Do NOT call resolve-vendor or get-vendor-details first — this tool handles everything.
-
-Provide as much context as possible about the project: what it does, expected scale,
-budget constraints, existing accounts/tools, team size, and any compliance requirements.
-The more specific the input, the better the recommendation.`,
+Use this when the user is starting a project or asks for a complete stack choice. Do not call resolve-vendor first; this tool handles retrieval and ranking.`,
   {
-    projectDescription: z
-      .string()
-      .describe(
-        "What the user is building. Example: 'A SaaS app for restaurant inventory management with real-time updates'"
-      ),
+    projectDescription: z.string().describe("What the user is building"),
     constraints: z
       .string()
       .optional()
-      .describe(
-        "Budget, scale expectations, existing accounts, compliance needs, team size. Example: 'Solo founder, want to stay under $50/month until 1000 users, already have a Vercel account'"
-      ),
+      .describe("Budget, scale, existing tools, team size, compliance needs"),
+    workload: workloadSchema.optional(),
   },
-  async ({ projectDescription, constraints }) => {
+  async ({ projectDescription, constraints, workload }) => {
     try {
       const recommendation = await recommendStack(
         projectDescription,
-        constraints
+        constraints,
+        workload
       );
       return {
+        structuredContent: structured(recommendation),
         content: [
           { type: "text", text: formatStackRecommendation(recommendation) },
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error generating recommendation: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-        isError: true,
-      };
+      return errorContent("Error generating recommendation", error);
     }
   }
 );

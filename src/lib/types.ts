@@ -20,10 +20,13 @@ export interface VendorSearchResult {
   pricingModel: "free" | "freemium" | "usage-based" | "flat-rate" | "per-seat";
   bestFor: string;
   lastUpdated: string;
+  confidence?: "high" | "medium" | "low";
+  dataSource?: "manual" | "scraped" | "vendor-claimed";
 }
 
 export interface VendorSearchResponse {
   results: VendorSearchResult[];
+  unknown?: UnknownCorpusResult;
 }
 
 export interface FreeTierDetails {
@@ -45,6 +48,39 @@ export interface CostEstimate {
   at1kUsers: string;
   at10kUsers: string;
   firstPaidTrigger: string;
+}
+
+export interface WorkloadInput {
+  users?: number;
+  monthlyActiveUsers?: number;
+  storageGb?: number;
+  databaseSizeGb?: number;
+  emailSendsPerMonth?: number;
+  authMau?: number;
+  regions?: number;
+  teamSeats?: number;
+  monthlyTransactions?: number;
+  averageTransactionUsd?: number;
+  monthlyRevenueUsd?: number;
+  notes?: string;
+}
+
+export interface VendorClaim {
+  path: string;
+  summary: string;
+  sourceUrl: string;
+  observedAt: string;
+  confidence: "high" | "medium" | "low";
+  staleAfter: string;
+}
+
+export interface UnknownCorpusResult {
+  kind: "unknown";
+  requestedCategory?: string;
+  query: string;
+  message: string;
+  availableCategories: readonly string[];
+  suggestedNextSteps: string[];
 }
 
 export interface VendorFeature {
@@ -106,10 +142,37 @@ export interface VendorProfile {
   };
 
   comparisons: VendorComparison[];
+  claims?: VendorClaim[];
 
   lastUpdated: string;
   dataSource: "manual" | "scraped" | "vendor-claimed";
   confidence: "high" | "medium" | "low";
+}
+
+export interface VendorCostEstimate {
+  vendorId: string;
+  vendorName: string;
+  category: string;
+  monthlyUsd: number | null;
+  display: string;
+  basis: string;
+  confidence: "high" | "medium" | "low";
+  assumptions: string[];
+  unknowns: string[];
+  sources: VendorClaim[];
+}
+
+export interface DecisionMatrixRow {
+  layer: string;
+  vendor: string;
+  vendorName: string;
+  fit: "strong" | "reasonable" | "weak";
+  why: string;
+  tradeoffs: string[];
+  estimatedMonthlyCost: string;
+  confidence: "high" | "medium" | "low";
+  dataFreshness: string;
+  sources: VendorClaim[];
 }
 
 export interface StackRecommendation {
@@ -117,17 +180,33 @@ export interface StackRecommendation {
     string,
     {
       vendor: string;
+      vendorName?: string;
       reason: string;
     }
   >;
-  costEstimate: CostEstimate;
+  costEstimate: CostEstimate & {
+    monthlyUsd?: number | null;
+    byVendor?: VendorCostEstimate[];
+    assumptions?: string[];
+    unknowns?: string[];
+  };
+  decisionMatrix?: DecisionMatrixRow[];
+  assumptions?: string[];
+  unknowns?: string[];
+  alternatives?: {
+    if: string;
+    swap: Record<string, { vendor: string; vendorName?: string; reason: string }>;
+  }[];
   alternativeStack: {
     if: string;
     swap: Record<string, { vendor: string; reason: string }>;
   } | null;
+  sources?: VendorClaim[];
+  generatedAt?: string;
 }
 
 export interface RecommendRequest {
   projectDescription: string;
   constraints?: string;
+  workload?: WorkloadInput;
 }
