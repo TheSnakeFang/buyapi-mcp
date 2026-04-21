@@ -24,6 +24,7 @@ Current status and planned features for the BuyAPI MCP server.
 ### Near-term
 - [x] Remote MCP endpoint (`https://buyapi.ai/api/mcp`) - no local install needed
 - [x] npm publish - `buyapi-mcp@0.2.0` installable from registry via `npx buyapi-mcp`
+- [x] GitHub Release - `v0.2.0` release notes published
 - [x] Release workflow skips npm publish when a version already exists
 - [ ] More vendor profiles with full pricing data
 - [x] CI/CD for automated npm releases on tag
