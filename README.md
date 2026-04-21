@@ -8,6 +8,8 @@ BuyAPI helps AI agents and developers make informed infrastructure decisions. Wh
 
 ### Remote MCP (Recommended)
 
+The hosted endpoint is the primary install path and exposes the current `v0.2.0` five-tool contract.
+
 Add to your MCP client config:
 
 ```json
@@ -21,6 +23,8 @@ Add to your MCP client config:
 ```
 
 ### Local Install
+
+`buyapi-mcp@0.2.0` is published on npm:
 
 ```bash
 npx buyapi-mcp

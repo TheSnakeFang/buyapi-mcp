@@ -29,6 +29,23 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+      - name: Read package version
+        id: package
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether version is already published
+        id: npm
+        run: |
+          if npm view "buyapi-mcp@${{ steps.package.outputs.version }}" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "buyapi-mcp@${{ steps.package.outputs.version }} is already published; skipping npm publish."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - run: pnpm publish --no-git-checks
+        if: steps.npm.outputs.exists != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
