@@ -16,7 +16,7 @@ Add to your MCP client config:
 {
   "mcpServers": {
     "buyapi": {
-      "url": "https://mcp.buyapi.ai/mcp"
+      "url": "https://buyapi.ai/api/mcp"
     }
   }
 }
@@ -98,7 +98,7 @@ Add to your Claude Code MCP settings:
 {
   "mcpServers": {
     "buyapi": {
-      "url": "https://mcp.buyapi.ai/mcp"
+      "url": "https://buyapi.ai/api/mcp"
     }
   }
 }
@@ -115,7 +115,7 @@ In Cursor Settings -> MCP Servers, add:
 {
   "mcpServers": {
     "buyapi": {
-      "url": "https://mcp.buyapi.ai/mcp"
+      "url": "https://buyapi.ai/api/mcp"
     }
   }
 }
@@ -132,7 +132,7 @@ Add to `.vscode/mcp.json`:
 {
   "servers": {
     "buyapi": {
-      "url": "https://mcp.buyapi.ai/mcp"
+      "url": "https://buyapi.ai/api/mcp"
     }
   }
 }
@@ -149,7 +149,7 @@ Add to your Windsurf MCP config:
 {
   "mcpServers": {
     "buyapi": {
-      "url": "https://mcp.buyapi.ai/mcp"
+      "url": "https://buyapi.ai/api/mcp"
     }
   }
 }
@@ -181,7 +181,7 @@ BuyAPI works without an API key. For higher rate limits, get a free key at [buya
 {
   "mcpServers": {
     "buyapi": {
-      "url": "https://mcp.buyapi.ai/mcp",
+      "url": "https://buyapi.ai/api/mcp",
       "env": {
         "BUYAPI_API_KEY": "ba_live_..."
       }

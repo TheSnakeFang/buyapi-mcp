@@ -22,7 +22,7 @@ Initial public release of the BuyAPI MCP server.
 - `get-vendor-details` tool -- full vendor profiles with pricing, free tier limits, and comparisons
 - `recommend-stack` tool -- complete stack recommendations with cost projections at 100/1K/10K users
 - Local stdio transport via `npx buyapi-mcp`
-- Remote MCP endpoint at `https://mcp.buyapi.ai/mcp`
+- Remote MCP endpoint at `https://buyapi.ai/api/mcp`
 - Optional API key support for higher rate limits
 - Vendor coverage across 5 categories:
   - Database (Supabase, Convex, Neon, PlanetScale, Firebase)
