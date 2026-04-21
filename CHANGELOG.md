@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2026-04-21
+
+### Added
+
+- `compare-vendors` tool -- structured head-to-head vendor comparisons.
+- `estimate-cost` tool -- deterministic cost estimates from explicit workload inputs.
+- Structured `recommend-stack` output with decision matrix, assumptions, unknowns, alternatives, and sources.
+- Optional category support and unknown-corpus fallback for `resolve-vendor`.
+- Source provenance rendering for vendor details.
+
 ## [0.1.0] - 2026-04-15
 
 Initial public release of the BuyAPI MCP server.

@@ -2,7 +2,7 @@
 
 > Unbiased vendor intelligence for AI coding agents.
 
-BuyAPI helps AI agents and developers make informed infrastructure decisions. When your agent needs to pick a database, auth provider, hosting platform, or payment processor, BuyAPI provides current, structured, neutral vendor comparisons — not training data defaults.
+BuyAPI helps AI agents and developers make informed infrastructure decisions. When your agent needs to pick a database, auth provider, hosting platform, or payment processor, BuyAPI provides current, structured, neutral vendor comparisons - not training data defaults.
 
 ## Quick Start
 
@@ -30,35 +30,57 @@ npx buyapi-mcp
 
 ### `resolve-vendor`
 
-Search for vendors by category. Returns matching vendors with pricing summaries and positioning.
+Search for vendors by query. Category is optional. Returns matching vendors with pricing summaries, positioning, confidence, and explicit unknown-corpus fallbacks.
 
 ```
 Query: "I need a database for a real-time collaborative app"
 Category: "database"
 
-→ Returns: Supabase, Convex, Neon, PlanetScale, Firebase with comparison metadata
+-> Returns: Convex, Supabase, Neon, PlanetScale, Firebase with comparison metadata
 ```
 
 ### `get-vendor-details`
 
-Get detailed vendor profile — concrete pricing numbers, free tier limits, scaling characteristics, known gotchas, and head-to-head comparisons.
+Get detailed vendor profile: concrete pricing numbers, free tier limits, scaling characteristics, known gotchas, source provenance, and head-to-head comparisons.
 
 ```
 Vendor ID: /database/supabase
 Query: "free tier limits for a side project"
 
-→ Returns: Full pricing tiers, 500MB DB limit, 50K auth users, scaling triggers
+-> Returns: Full pricing tiers, 500MB DB limit, 50K auth users, scaling triggers, and sources
+```
+
+### `compare-vendors`
+
+Compare two or more specific vendors for a workload or decision.
+
+```
+Vendor IDs: ["/database/convex", "/database/supabase", "/database/neon"]
+Query: "realtime TypeScript SaaS with preview environments"
+
+-> Returns: Structured decision matrix with fit, tradeoffs, estimated cost, confidence, and sources
+```
+
+### `estimate-cost`
+
+Run deterministic cost estimates from explicit workload inputs instead of leaving math to the model.
+
+```
+Vendor IDs: ["/email/ses"]
+Workload: { "emailSendsPerMonth": 50000 }
+
+-> Returns: Amazon SES estimated at $5/month, basis, assumptions, unknowns, and sources
 ```
 
 ### `recommend-stack`
 
-Describe your project and get a complete stack recommendation with cost projections at multiple scale points.
+Describe your project and get a complete stack recommendation with cost projections, a decision matrix, assumptions, unknowns, alternatives, and sources.
 
 ```
 Project: "SaaS for restaurant inventory with real-time updates"
 Constraints: "Solo founder, under $50/month until 1000 users"
 
-→ Returns: Full stack (hosting + DB + auth + payments + email) with cost estimates at 100/1K/10K users
+-> Returns: Full stack (hosting + DB + auth + payments + email) with structured cost and decision data
 ```
 
 ## Setup by Client
@@ -83,7 +105,7 @@ Add to your Claude Code MCP settings:
 <details>
 <summary><strong>Cursor</strong></summary>
 
-In Cursor Settings → MCP Servers, add:
+In Cursor Settings -> MCP Servers, add:
 
 ```json
 {
@@ -176,7 +198,7 @@ BuyAPI works without an API key. For higher rate limits, get a free key at [buya
 
 ## How It Works
 
-This MCP server is a thin TypeScript client that calls the BuyAPI backend API. It contains no vendor data or business logic — all intelligence is served from [buyapi.ai](https://buyapi.ai).
+This MCP server is a thin TypeScript client that calls the BuyAPI backend API. It contains no vendor data; lightweight comparison and cost formatting mirrors the hosted endpoint while vendor intelligence is served from [buyapi.ai](https://buyapi.ai).
 
 The source is fully open so you can verify there's no data collection, prompt injection, or hidden behavior.
 

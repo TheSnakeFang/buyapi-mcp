@@ -2,7 +2,9 @@ import type {
   VendorSearchResponse,
   VendorProfile,
   StackRecommendation,
+  WorkloadInput,
 } from "./types.js";
+import { buildDecisionMatrix, estimateVendorCost } from "./decision.js";
 
 const API_BASE = process.env.BUYAPI_API_URL || "https://buyapi.ai";
 
@@ -10,7 +12,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "User-Agent": "buyapi-mcp/0.1.0",
+    "User-Agent": "buyapi-mcp/0.2.0",
   };
 
   const apiKey = process.env.BUYAPI_API_KEY;
@@ -35,9 +37,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function searchVendors(
   query: string,
-  category: string
+  category?: string
 ): Promise<VendorSearchResponse> {
-  const params = new URLSearchParams({ query, category });
+  const params = new URLSearchParams({ query });
+  if (category) params.set("category", category);
   return request<VendorSearchResponse>(`/api/vendors/search?${params}`);
 }
 
@@ -57,10 +60,44 @@ export async function getVendorDetails(
 
 export async function recommendStack(
   projectDescription: string,
-  constraints?: string
+  constraints?: string,
+  workload?: WorkloadInput
 ): Promise<StackRecommendation> {
   return request<StackRecommendation>("/api/recommend", {
     method: "POST",
-    body: JSON.stringify({ projectDescription, constraints }),
+    body: JSON.stringify({ projectDescription, constraints, workload }),
   });
+}
+
+export async function compareVendors(
+  vendorIds: string[],
+  query: string,
+  workload?: WorkloadInput
+) {
+  const vendors = await Promise.all(
+    vendorIds.map((vendorId) => getVendorDetails(vendorId, query))
+  );
+  return { decisionMatrix: buildDecisionMatrix(vendors, query, workload) };
+}
+
+export async function estimateCosts(args: {
+  vendorIds?: string[];
+  category?: string;
+  workload: WorkloadInput;
+}) {
+  const vendorIds = args.vendorIds?.length
+    ? args.vendorIds
+    : args.category
+      ? (await searchVendors(JSON.stringify(args.workload), args.category)).results.map(
+          (result) => result.id
+        )
+      : [];
+
+  const vendors = await Promise.all(
+    vendorIds.map((vendorId) => getVendorDetails(vendorId))
+  );
+
+  return {
+    estimates: vendors.map((vendor) => estimateVendorCost(vendor, args.workload)),
+  };
 }

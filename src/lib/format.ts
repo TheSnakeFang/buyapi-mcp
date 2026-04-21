@@ -2,7 +2,11 @@ import type {
   VendorSearchResult,
   VendorProfile,
   StackRecommendation,
+  DecisionMatrixRow,
+  VendorCostEstimate,
+  UnknownCorpusResult,
 } from "./types.js";
+import { buildVendorClaims } from "./decision.js";
 
 export function formatSearchResults(results: VendorSearchResult[]): string {
   if (results.length === 0) {
@@ -17,6 +21,10 @@ export function formatSearchResults(results: VendorSearchResult[]): string {
     .join("\n\n---\n\n");
 }
 
+export function formatUnknown(unknown: UnknownCorpusResult): string {
+  return `${unknown.message}\n\nAvailable categories: ${unknown.availableCategories.join(", ")}`;
+}
+
 export function formatVendorProfile(vendor: VendorProfile): string {
   const sections: string[] = [];
 
@@ -26,14 +34,14 @@ export function formatVendorProfile(vendor: VendorProfile): string {
   const pricingLines = [`**Pricing model:** ${vendor.pricing.model}`];
   if (vendor.pricing.freeTier?.exists) {
     pricingLines.push(
-      `**Free tier:** ${vendor.pricing.freeTier.generous ? "Generous" : "Limited"} — ${vendor.pricing.freeTier.keyLimits.join(", ")}`
+      `**Free tier:** ${vendor.pricing.freeTier.generous ? "Generous" : "Limited"} - ${vendor.pricing.freeTier.keyLimits.join(", ")}`
     );
     pricingLines.push(
       `**Credit card required:** ${vendor.pricing.freeTier.creditCardRequired ? "Yes" : "No"}`
     );
   }
   for (const tier of vendor.pricing.tiers) {
-    pricingLines.push(`**${tier.name}:** ${tier.price} — ${tier.keyInclusions.join(", ")}`);
+    pricingLines.push(`**${tier.name}:** ${tier.price} - ${tier.keyInclusions.join(", ")}`);
   }
   sections.push(`## Pricing\n${pricingLines.join("\n")}`);
 
@@ -54,7 +62,7 @@ export function formatVendorProfile(vendor: VendorProfile): string {
   // Key features
   if (vendor.features.length > 0) {
     const featureLines = vendor.features.map(
-      (f) => `- ${f.included ? "✓" : "✗"} ${f.key} (${f.tier})${f.notes ? ` — ${f.notes}` : ""}`
+      (f) => `- ${f.included ? "yes" : "no"} ${f.key} (${f.tier})${f.notes ? ` - ${f.notes}` : ""}`
     );
     sections.push(`## Key Features\n${featureLines.join("\n")}`);
   }
@@ -80,6 +88,15 @@ export function formatVendorProfile(vendor: VendorProfile): string {
     `## Company\nFounded: ${vendor.company.founded} | Team: ${vendor.company.teamSize} | Funding: ${vendor.company.funding}\nOpen source: ${vendor.company.openSource ? "Yes" : "No"}${vendor.company.githubStars ? ` (${vendor.company.githubStars.toLocaleString()} stars)` : ""}`
   );
 
+  sections.push(
+    `## Sources\n${buildVendorClaims(vendor)
+      .map(
+        (claim) =>
+          `- ${claim.path}: ${claim.sourceUrl} (observed ${claim.observedAt}, confidence ${claim.confidence})`
+      )
+      .join("\n")}`
+  );
+
   return sections.join("\n\n");
 }
 
@@ -98,9 +115,67 @@ export function formatStackRecommendation(rec: StackRecommendation): string {
   if (rec.alternativeStack) {
     lines.push(`\n## Alternative\nIf: ${rec.alternativeStack.if}`);
     for (const [layer, swap] of Object.entries(rec.alternativeStack.swap)) {
-      lines.push(`Swap ${layer} → ${swap.vendor}: ${swap.reason}`);
+      lines.push(`Swap ${layer} -> ${swap.vendor}: ${swap.reason}`);
     }
   }
 
+  if (rec.decisionMatrix?.length) {
+    lines.push("\n## Decision Matrix");
+    for (const row of rec.decisionMatrix) {
+      lines.push(
+        `- ${row.layer}: ${row.vendorName} (${row.fit}) - ${row.why} Cost: ${row.estimatedMonthlyCost}`
+      );
+    }
+  }
+
+  if (rec.assumptions?.length) {
+    lines.push("\n## Assumptions");
+    lines.push(...rec.assumptions.map((assumption) => `- ${assumption}`));
+  }
+
+  if (rec.unknowns?.length) {
+    lines.push("\n## Unknowns");
+    lines.push(...rec.unknowns.map((unknown) => `- ${unknown}`));
+  }
+
   return lines.join("\n");
+}
+
+export function formatDecisionMatrix(rows: DecisionMatrixRow[]): string {
+  if (rows.length === 0) return "No vendors found in the BuyAPI corpus.";
+  return rows
+    .map((row) => {
+      const lines = [
+        `**${row.vendorName}** (${row.fit})`,
+        row.why,
+        `Cost: ${row.estimatedMonthlyCost}`,
+        `Confidence: ${row.confidence}`,
+      ];
+      if (row.tradeoffs.length) {
+        lines.push(`Tradeoffs: ${row.tradeoffs.join("; ")}`);
+      }
+      return lines.join("\n");
+    })
+    .join("\n\n---\n\n");
+}
+
+export function formatCostEstimates(estimates: VendorCostEstimate[]): string {
+  if (estimates.length === 0) return "No cost estimates available.";
+  return estimates
+    .map((estimate) => {
+      const lines = [
+        `**${estimate.vendorName}** (${estimate.vendorId})`,
+        `Cost: ${estimate.display}`,
+        `Basis: ${estimate.basis}`,
+        `Confidence: ${estimate.confidence}`,
+      ];
+      if (estimate.assumptions.length) {
+        lines.push(`Assumptions: ${estimate.assumptions.join("; ")}`);
+      }
+      if (estimate.unknowns.length) {
+        lines.push(`Unknowns: ${estimate.unknowns.join("; ")}`);
+      }
+      return lines.join("\n");
+    })
+    .join("\n\n---\n\n");
 }
