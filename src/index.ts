@@ -8,6 +8,7 @@ import {
   recommendStack,
   searchVendors,
 } from "./lib/api.js";
+import { formatStackScan, scanStack } from "./lib/scan.js";
 import {
   formatCostEstimates,
   formatDecisionMatrix,
@@ -209,6 +210,24 @@ Use this when the user is starting a project or asks for a complete stack choice
 );
 
 async function main() {
+  const command = process.argv[2];
+  if (command === "scan") {
+    const root = process.argv[3] ?? process.cwd();
+    console.log(formatStackScan(scanStack(root)));
+    return;
+  }
+
+  if (command === "--help" || command === "-h" || command === "help") {
+    console.log(`BuyAPI
+
+Commands:
+  buyapi-mcp              Run the local MCP server over stdio
+  buyapi-mcp scan [dir]   Scan a local repo for known stack tools
+
+The scan command is local-only and does not upload data.`);
+    return;
+  }
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("BuyAPI MCP server running on stdio");

@@ -6,7 +6,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "buyapi-mcp": "dist/index.js"
+    "buyapi-mcp": "dist/index.js",
+    "buyapi": "dist/index.js"
   },
   "scripts": {
     "build": "tsup",

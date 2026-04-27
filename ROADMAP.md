@@ -10,7 +10,9 @@ Current status and planned features for the BuyAPI MCP server.
 - [x] `estimate-cost` - deterministic cost estimates from explicit workload inputs
 - [x] `recommend-stack` - complete stack recommendations with cost projections, decision matrix, assumptions, unknowns, alternatives, and sources
 - [x] Local stdio transport (`npx buyapi-mcp`)
-- [x] API key support for higher rate limits
+- [x] API key forwarding in local client
+- [ ] Public API key creation/validation for higher rate limits
+- [x] Local-only `scan` command for package/config-based stack detection
 
 ### Covered Categories
 - Database (Supabase, Convex, Neon, PlanetScale, Firebase)
@@ -28,6 +30,8 @@ Current status and planned features for the BuyAPI MCP server.
 - [x] Release workflow skips npm publish when a version already exists
 - [ ] More vendor profiles with full pricing data
 - [x] CI/CD for automated npm releases on tag
+- [ ] Keep public README aligned with app repo's `docs/CURRENT_STATE.md`
+- [ ] Publish/rename broader CLI package so `npx buyapi scan` works directly
 
 ### Future
 - [ ] New categories: analytics, monitoring, CMS, search, vector databases

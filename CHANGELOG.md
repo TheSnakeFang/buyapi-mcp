@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Local-only `scan` command for detecting known stack tools from project files.
+
 ## [0.2.0] - 2026-04-21
 
 ### Added
@@ -23,7 +29,7 @@ Initial public release of the BuyAPI MCP server.
 - `recommend-stack` tool -- complete stack recommendations with cost projections at 100/1K/10K users
 - Local stdio transport via `npx buyapi-mcp`
 - Remote MCP endpoint at `https://buyapi.ai/api/mcp`
-- Optional API key support for higher rate limits
+- Optional API key forwarding hook for future keyed backend access
 - Vendor coverage across 5 categories:
   - Database (Supabase, Convex, Neon, PlanetScale, Firebase)
   - Auth (Supabase Auth, Clerk, Auth0, Auth.js)

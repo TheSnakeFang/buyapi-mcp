@@ -2,7 +2,7 @@
 
 > Unbiased vendor intelligence for AI coding agents.
 
-BuyAPI helps AI agents and developers make informed infrastructure decisions. When your agent needs to pick a database, auth provider, hosting platform, or payment processor, BuyAPI provides current, structured, neutral vendor comparisons - not training data defaults.
+BuyAPI helps AI agents and developers make informed infrastructure decisions. When your agent needs to pick a database, auth provider, hosting platform, payment processor, or email provider, BuyAPI provides current, structured, neutral vendor comparisons - not training data defaults.
 
 ## Quick Start
 
@@ -29,6 +29,16 @@ Add to your MCP client config:
 ```bash
 npx buyapi-mcp
 ```
+
+### Local Stack Scan
+
+The CLI now has a local-only stack scanner. It inspects common project files and prints detected BuyAPI tools without uploading data or creating an account:
+
+```bash
+npx buyapi-mcp scan
+```
+
+The package also exposes a `buyapi` binary for the future broader CLI. Publishing a separate `buyapi` npm package would be required before `npx buyapi scan` works from a clean machine.
 
 ## Available Tools
 
@@ -173,9 +183,11 @@ Add to your Windsurf MCP config:
 
 </details>
 
-## API Key (Optional)
+## API Keys
 
-BuyAPI works without an API key. For higher rate limits, get a free key at [buyapi.ai/dashboard](https://buyapi.ai/dashboard).
+BuyAPI currently works without an API key at the anonymous rate limit. Keyed access is scaffolded in the backend but not publicly shipped yet, so the dashboard does not issue real keys today.
+
+The local MCP package already forwards `BUYAPI_API_KEY` for future compatibility:
 
 ```json
 {
@@ -204,14 +216,14 @@ BuyAPI works without an API key. For higher rate limits, get a free key at [buya
 
 This MCP server is a thin TypeScript client that calls the BuyAPI backend API. It contains no vendor data; lightweight comparison and cost formatting mirrors the hosted endpoint while vendor intelligence is served from [buyapi.ai](https://buyapi.ai).
 
-The source is fully open so you can verify there's no data collection, prompt injection, or hidden behavior.
+The source is fully open so you can verify there's no prompt injection or hidden behavior. `scan` is local-only and does not upload stack data.
 
 ## Data Transparency
 
 - All vendor data is publicly viewable at [buyapi.ai](https://buyapi.ai)
-- Every profile shows when it was last updated and data source (manual curation, vendor-claimed)
+- Every profile shows when it was last updated and data source
 - BuyAPI does not accept payment from vendors for ranking influence
-- Report inaccurate data: [buyapi.ai/feedback](https://buyapi.ai/feedback)
+- Inaccurate-data reporting and vendor claiming are roadmap items, not live product flows yet.
 
 ## License
 
