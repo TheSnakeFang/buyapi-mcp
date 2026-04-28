@@ -63,7 +63,7 @@ describe("parseCliCommand", () => {
     const text = helpText();
     expect(text).toContain("buyapi search <query>");
     expect(text).toContain("buyapi compare <ids...>");
-    expect(text).toContain("npx buyapi-mcp still works");
+    expect(text).toContain("buyapi-mcp is deprecated");
     expect(text).toContain("does not upload data");
   });
 });

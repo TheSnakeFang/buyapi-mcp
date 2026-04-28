@@ -30,7 +30,7 @@ This is the easiest path: the client connects directly to BuyAPI over HTTP, with
 
 ### Local Install
 
-`buyapi@0.3.1` is published on npm:
+`buyapi@0.3.2` is published on npm:
 
 ```bash
 npx buyapi help
@@ -49,7 +49,7 @@ In an MCP client config, this command is launched by the client as a local stdio
 }
 ```
 
-Use the local path when an agent client does not support remote MCP URLs, or when you want the open-source local transport. Hosted MCP is still the recommended default. The older `buyapi-mcp` package remains available as a compatibility package.
+Use the local path when an agent client does not support remote MCP URLs, or when you want the open-source local transport. Hosted MCP is still the recommended default. The older `buyapi-mcp` package is deprecated on npm so new users see one canonical package name.
 
 ### Local Stack Scan
 
@@ -308,7 +308,7 @@ Common flags:
 --json                  Print raw structured JSON
 ```
 
-Future account-backed CLI commands such as `setup`, `login`, `logout`, and `stack sync` are planned but not shipped yet. `npx buyapi-mcp` remains supported for existing installs.
+Future account-backed CLI commands such as `setup`, `login`, `logout`, and `stack sync` are planned but not shipped yet.
 
 ## Covered Categories
 

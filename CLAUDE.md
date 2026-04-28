@@ -2,7 +2,7 @@
 
 Public, open-source MCP server for BuyAPI — the tool AI agents call when they need to pick a vendor.
 
-**Published:** `buyapi@0.3.1` on npm; `buyapi-mcp@0.3.1` remains as compatibility
+**Published:** `buyapi@0.3.1` on npm; `buyapi-mcp` is deprecated and points users to `buyapi`
 **Live endpoint:** `https://buyapi.ai/api/mcp`
 
 ## What This Repo Is

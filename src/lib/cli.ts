@@ -152,7 +152,7 @@ Options:
   --revenue <n>           Monthly revenue in USD
   --json                  Print raw JSON
 
-Compatibility: npx buyapi-mcp still works for the old package name.
+Note: buyapi-mcp is deprecated on npm. Use npx buyapi for new installs.
 
 The scan command is local-only and does not upload data.`;
 }
