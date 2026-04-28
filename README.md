@@ -98,7 +98,12 @@ npx buyapi login
 npx buyapi scan --sync --yes
 ```
 
-`buyapi login` opens the browser, signs in through the dashboard, creates a CLI API key, and stores it locally. You can still pass an existing key with `buyapi login ba_live_...` or use `BUYAPI_API_KEY` in CI. Sync uploads known detected tools plus unknown top-level package names, versions, and evidence so BuyAPI can review emerging tools. It does not upload source code, environment values, or file contents.
+Detection uses BuyAPI's own registry of manifest, marker-file, env-example,
+config-content, import, and framework signals. Unknown top-level packages are
+kept as candidates so the public tool register can learn about new AI-native
+tools without copying third-party detection tables.
+
+`buyapi login` opens the browser, signs in through the dashboard, creates a CLI API key, and stores it locally. You can still pass an existing key with `buyapi login ba_live_...` or use `BUYAPI_API_KEY` in CI. Sync uploads known detected tools plus unknown top-level package names, versions, and evidence so BuyAPI can review emerging tools. It does not upload source code, source file contents, or environment values.
 
 `scan` is a human-facing CLI command, not an MCP tool. The MCP server should stay quiet on stdout because stdout carries the MCP protocol.
 

@@ -1,11 +1,13 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+
+type DetectionMethod = "file" | "manifest" | "env" | "config" | "import" | "framework";
 
 export type StackScanTool = {
   vendorSlug: string;
   category: string;
   evidence: string[];
-  detectionMethods: Array<"file" | "manifest" | "env" | "config">;
+  detectionMethods: DetectionMethod[];
   confidence: "high" | "medium" | "low";
   primary: boolean;
 };
@@ -30,10 +32,12 @@ const PACKAGE_RULES: Array<{
   vendorSlug: string;
   category: string;
   primary?: boolean;
+  method?: DetectionMethod;
 }> = [
   { packages: ["@supabase/supabase-js"], vendorSlug: "/database/supabase", category: "database" },
   { packages: ["convex"], vendorSlug: "/database/convex", category: "database" },
   { packages: ["@neondatabase/serverless"], vendorSlug: "/database/neon", category: "database" },
+  { packages: ["@planetscale/database"], vendorSlug: "/database/planetscale", category: "database" },
   { packages: ["firebase"], vendorSlug: "/database/firebase", category: "database" },
   { packages: ["@clerk/nextjs", "@clerk/clerk-react"], vendorSlug: "/auth/clerk", category: "auth" },
   { packages: ["next-auth", "@auth/core", "@auth/nextjs"], vendorSlug: "/auth/authjs", category: "auth" },
@@ -47,6 +51,10 @@ const PACKAGE_RULES: Array<{
   { packages: ["postmark"], vendorSlug: "/email/postmark", category: "email" },
   { packages: ["@aws-sdk/client-ses", "aws-sdk"], vendorSlug: "/email/ses", category: "email", primary: false },
   { packages: ["@vercel/analytics", "@vercel/blob"], vendorSlug: "/hosting/vercel", category: "hosting" },
+  { packages: ["posthog-js", "posthog-node"], vendorSlug: "/analytics/posthog", category: "analytics" },
+  { packages: ["@sentry/nextjs", "@sentry/node"], vendorSlug: "/monitoring/sentry", category: "monitoring" },
+  { packages: ["next"], vendorSlug: "/framework/nextjs", category: "framework", method: "framework", primary: false },
+  { packages: ["vite"], vendorSlug: "/framework/vite", category: "framework", method: "framework", primary: false },
 ];
 
 const FILE_RULES: Array<{
@@ -63,6 +71,46 @@ const FILE_RULES: Array<{
   { path: "fly.toml", vendorSlug: "/hosting/flyio", category: "hosting", label: "fly.toml" },
   { path: "railway.json", vendorSlug: "/hosting/railway", category: "hosting", label: "railway.json" },
   { path: "prisma", vendorSlug: "/database/neon", category: "database", label: "prisma directory (database provider unknown)", primary: false },
+  { path: "convex/schema.ts", vendorSlug: "/database/convex", category: "database", label: "convex/schema.ts" },
+  { path: "sentry.client.config.ts", vendorSlug: "/monitoring/sentry", category: "monitoring", label: "sentry.client.config.ts" },
+  { path: "sentry.server.config.ts", vendorSlug: "/monitoring/sentry", category: "monitoring", label: "sentry.server.config.ts" },
+];
+
+const CONFIG_RULES: Array<{
+  path: string;
+  patterns: Array<{ pattern: RegExp; vendorSlug: string; category: string; label: string; primary?: boolean }>;
+}> = [
+  {
+    path: "next.config.ts",
+    patterns: [
+      { pattern: /withSentryConfig/i, vendorSlug: "/monitoring/sentry", category: "monitoring", label: "next.config.ts:withSentryConfig" },
+    ],
+  },
+  {
+    path: "next.config.js",
+    patterns: [
+      { pattern: /withSentryConfig/i, vendorSlug: "/monitoring/sentry", category: "monitoring", label: "next.config.js:withSentryConfig" },
+    ],
+  },
+  {
+    path: "wrangler.toml",
+    patterns: [
+      { pattern: /\bname\s*=/i, vendorSlug: "/hosting/cloudflare-workers", category: "hosting", label: "wrangler.toml" },
+    ],
+  },
+];
+
+const IMPORT_RULES: Array<{
+  pattern: RegExp;
+  vendorSlug: string;
+  category: string;
+  label: string;
+  primary?: boolean;
+}> = [
+  { pattern: /from\s+["']posthog-js["']|import\s+["']posthog-js["']/i, vendorSlug: "/analytics/posthog", category: "analytics", label: "import:posthog-js" },
+  { pattern: /from\s+["']@sentry\/nextjs["']|import\s+["']@sentry\/nextjs["']/i, vendorSlug: "/monitoring/sentry", category: "monitoring", label: "import:@sentry/nextjs" },
+  { pattern: /from\s+["']resend["']/i, vendorSlug: "/email/resend", category: "email", label: "import:resend" },
+  { pattern: /from\s+["']stripe["']/i, vendorSlug: "/payments/stripe", category: "payments", label: "import:stripe" },
 ];
 
 export function scanStack(
@@ -98,7 +146,7 @@ export function scanStack(
             vendorSlug: rule.vendorSlug,
             category: rule.category,
             evidence: matches.map((name) => `package:${name}`),
-            detectionMethods: ["manifest"],
+            detectionMethods: [rule.method ?? "manifest"],
             confidence: "high",
             primary: rule.primary ?? true,
           });
@@ -150,6 +198,8 @@ export function scanStack(
   }
 
   scanEnvExample(root, detected, filesChecked);
+  scanConfigFiles(root, detected, filesChecked);
+  scanSourceImports(root, detected, filesChecked);
 
   return {
     root,
@@ -164,6 +214,57 @@ export function scanStack(
     filesChecked: [...new Set(filesChecked)].sort(),
     warnings,
   };
+}
+
+function scanConfigFiles(
+  root: string,
+  detected: Map<string, StackScanTool>,
+  filesChecked: string[]
+) {
+  for (const rule of CONFIG_RULES) {
+    const filePath = join(root, rule.path);
+    if (!existsSync(filePath)) continue;
+    filesChecked.push(rule.path);
+    const text = safeRead(filePath);
+    if (!text) continue;
+    for (const check of rule.patterns) {
+      if (!check.pattern.test(text)) continue;
+      addDetected(detected, {
+        vendorSlug: check.vendorSlug,
+        category: check.category,
+        evidence: [check.label],
+        detectionMethods: ["config"],
+        confidence: "medium",
+        primary: check.primary ?? true,
+      });
+    }
+  }
+}
+
+function scanSourceImports(
+  root: string,
+  detected: Map<string, StackScanTool>,
+  filesChecked: string[]
+) {
+  const files = collectSourceFiles(root);
+  for (const relativePath of files) {
+    const text = safeRead(join(root, relativePath));
+    if (!text) continue;
+    let matched = false;
+    for (const rule of IMPORT_RULES) {
+      if (!rule.pattern.test(text)) continue;
+      matched = true;
+      addDetected(detected, {
+        vendorSlug: rule.vendorSlug,
+        category: rule.category,
+        evidence: [`${relativePath}:${rule.label}`],
+        detectionMethods: ["import"],
+        confidence: "medium",
+        primary: rule.primary ?? true,
+      });
+    }
+    if (matched) filesChecked.push(relativePath);
+  }
 }
 
 export function formatStackScan(
@@ -317,4 +418,39 @@ function envTool(vendorSlug: string, category: string, label: string): StackScan
 
 export function listRootFiles(root = process.cwd()): string[] {
   return readdirSync(root).sort();
+}
+
+function collectSourceFiles(root: string): string[] {
+  const starts = ["src", "app", "pages", "components", "convex"].filter((path) =>
+    existsSync(join(root, path))
+  );
+  const files: string[] = [];
+  const ignored = new Set(["node_modules", ".next", "dist", "build", ".git"]);
+
+  function walk(relativeDir: string) {
+    if (files.length >= 200) return;
+    const absoluteDir = join(root, relativeDir);
+    for (const entry of readdirSync(absoluteDir)) {
+      if (ignored.has(entry) || files.length >= 200) continue;
+      const relativePath = join(relativeDir, entry);
+      const absolutePath = join(root, relativePath);
+      const stat = statSync(absolutePath);
+      if (stat.isDirectory()) {
+        walk(relativePath);
+      } else if (/\.(tsx?|jsx?|mjs|cjs)$/.test(entry)) {
+        files.push(relativePath);
+      }
+    }
+  }
+
+  for (const start of starts) walk(start);
+  return files;
+}
+
+function safeRead(path: string): string | null {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return null;
+  }
 }

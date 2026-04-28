@@ -109,4 +109,49 @@ describe("scanStack", () => {
       scanStack(root, { includeAll: true }).tools.map((tool) => tool.vendorSlug)
     ).toContain("/database/neon");
   });
+
+  it("detects config and import signals without package manifest matches", () => {
+    const root = mkdtempSync(join(tmpdir(), "buyapi-scan-"));
+    mkdirSync(join(root, "src"));
+    writeFileSync(
+      join(root, "next.config.ts"),
+      "export default withSentryConfig({});"
+    );
+    writeFileSync(
+      join(root, "src", "analytics.ts"),
+      "import posthog from 'posthog-js';\nposthog.init('x');"
+    );
+
+    const result = scanStack(root);
+    expect(result.tools).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          vendorSlug: "/monitoring/sentry",
+          detectionMethods: expect.arrayContaining(["config"]),
+        }),
+        expect.objectContaining({
+          vendorSlug: "/analytics/posthog",
+          detectionMethods: expect.arrayContaining(["import"]),
+        }),
+      ])
+    );
+    expect(result.filesChecked).toEqual(
+      expect.arrayContaining(["next.config.ts", join("src", "analytics.ts")])
+    );
+  });
+
+  it("tracks framework signals as supporting detections", () => {
+    const root = mkdtempSync(join(tmpdir(), "buyapi-scan-"));
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ dependencies: { next: "16.0.0" } })
+    );
+
+    expect(scanStack(root).tools.map((tool) => tool.vendorSlug)).not.toContain(
+      "/framework/nextjs"
+    );
+    expect(
+      scanStack(root, { includeAll: true }).tools.map((tool) => tool.vendorSlug)
+    ).toContain("/framework/nextjs");
+  });
 });
