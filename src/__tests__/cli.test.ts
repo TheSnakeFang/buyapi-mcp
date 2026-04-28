@@ -6,6 +6,11 @@ describe("parseCliCommand", () => {
     expect(parseCliCommand([])).toEqual({ name: "mcp" });
   });
 
+  it("parses explicit MCP and version commands", () => {
+    expect(parseCliCommand(["mcp"])).toEqual({ name: "mcp" });
+    expect(parseCliCommand(["--version"])).toEqual({ name: "version" });
+  });
+
   it("parses local scan", () => {
     expect(parseCliCommand(["scan", "/tmp/project"])).toEqual({
       name: "scan",
@@ -58,6 +63,7 @@ describe("parseCliCommand", () => {
     const text = helpText();
     expect(text).toContain("buyapi search <query>");
     expect(text).toContain("buyapi compare <ids...>");
+    expect(text).toContain("npx buyapi-mcp still works");
     expect(text).toContain("does not upload data");
   });
 });

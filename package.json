@@ -1,13 +1,19 @@
 {
-  "name": "buyapi-mcp",
-  "version": "0.2.0",
-  "description": "BuyAPI MCP Server — unbiased vendor intelligence for AI coding agents",
+  "name": "buyapi",
+  "version": "0.3.1",
+  "description": "BuyAPI CLI and MCP server — unbiased vendor intelligence for AI coding agents",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "bin": {
-    "buyapi-mcp": "dist/index.js",
-    "buyapi": "dist/index.js"
+    "buyapi": "dist/index.js",
+    "buyapi-mcp": "dist/index.js"
   },
   "scripts": {
     "build": "tsup",
@@ -32,7 +38,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TheSnakeFang/buyapi-mcp"
+    "url": "git+https://github.com/TheSnakeFang/buyapi-mcp.git"
   },
   "homepage": "https://buyapi.ai",
   "engines": {

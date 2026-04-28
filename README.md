@@ -1,10 +1,10 @@
-# BuyAPI MCP Server
+# BuyAPI CLI + MCP Server
 
 > Unbiased vendor intelligence for AI coding agents.
 
 [![Website](https://img.shields.io/badge/Website-buyapi.ai-blue)](https://buyapi.ai)
-[![NPM Version](https://img.shields.io/npm/v/buyapi-mcp?color=red)](https://www.npmjs.com/package/buyapi-mcp)
-[![MIT licensed](https://img.shields.io/npm/l/buyapi-mcp)](./LICENSE)
+[![NPM Version](https://img.shields.io/npm/v/buyapi?color=red)](https://www.npmjs.com/package/buyapi)
+[![MIT licensed](https://img.shields.io/npm/l/buyapi)](./LICENSE)
 
 BuyAPI helps AI agents and developers make informed infrastructure decisions. When your agent needs to pick a database, auth provider, hosting platform, payment processor, or email provider, BuyAPI provides current, structured, neutral vendor comparisons - not training data defaults.
 
@@ -30,10 +30,10 @@ This is the easiest path: the client connects directly to BuyAPI over HTTP, with
 
 ### Local Install
 
-`buyapi-mcp@0.2.0` is published on npm:
+`buyapi@0.3.1` is published on npm:
 
 ```bash
-npx buyapi-mcp
+npx buyapi help
 ```
 
 In an MCP client config, this command is launched by the client as a local stdio server. You do not run it manually first:
@@ -43,23 +43,21 @@ In an MCP client config, this command is launched by the client as a local stdio
   "mcpServers": {
     "buyapi": {
       "command": "npx",
-      "args": ["-y", "buyapi-mcp"]
+      "args": ["-y", "buyapi"]
     }
   }
 }
 ```
 
-Use the local path when an agent client does not support remote MCP URLs, or when you want the open-source local transport. Hosted MCP is still the recommended default.
+Use the local path when an agent client does not support remote MCP URLs, or when you want the open-source local transport. Hosted MCP is still the recommended default. The older `buyapi-mcp` package remains available as a compatibility package.
 
 ### Local Stack Scan
 
 The CLI now has a local-only stack scanner. It inspects common project files and prints detected BuyAPI tools without uploading data or creating an account:
 
 ```bash
-npx buyapi-mcp scan
+npx buyapi scan
 ```
-
-The package also exposes a `buyapi` binary when installed. Publishing a separate `buyapi` npm package would be required before `npx buyapi scan` works from a clean machine.
 
 `scan` is a human-facing CLI command, not an MCP tool. The MCP server should stay quiet on stdout because stdout carries the MCP protocol.
 
@@ -68,11 +66,11 @@ The package also exposes a `buyapi` binary when installed. Publishing a separate
 The local package can query BuyAPI without starting an MCP client:
 
 ```bash
-npx buyapi-mcp search "realtime database with preview environments" --category database
-npx buyapi-mcp details /database/convex
-npx buyapi-mcp compare /database/convex /database/supabase --query "realtime SaaS"
-npx buyapi-mcp recommend "B2B AI SaaS with teams and usage billing" --users 1000
-npx buyapi-mcp cost /email/ses --emails 50000
+npx buyapi search "realtime database with preview environments" --category database
+npx buyapi details /database/convex
+npx buyapi compare /database/convex /database/supabase --query "realtime SaaS"
+npx buyapi recommend "B2B AI SaaS with teams and usage billing" --users 1000
+npx buyapi cost /email/ses --emails 50000
 ```
 
 Use `--json` on read-only commands to print the raw structured response.
@@ -258,7 +256,7 @@ Add to your Windsurf MCP config:
   "mcpServers": {
     "buyapi": {
       "command": "npx",
-      "args": ["-y", "buyapi-mcp"]
+      "args": ["-y", "buyapi"]
     }
   }
 }
@@ -288,13 +286,15 @@ The local MCP package already forwards `BUYAPI_API_KEY` for future compatibility
 ## CLI Reference
 
 ```bash
-buyapi-mcp                         # Run the local MCP server over stdio
-buyapi-mcp scan [dir]              # Scan a local repo for known stack tools
-buyapi-mcp search <query>          # Search vendors
-buyapi-mcp details <vendorId>      # Fetch one vendor profile
-buyapi-mcp compare <ids...>        # Compare vendors
-buyapi-mcp recommend <prompt>      # Recommend a stack
-buyapi-mcp cost <ids...>           # Estimate cost from workload flags
+buyapi                             # Run the local MCP server over stdio
+buyapi mcp                         # Run the local MCP server over stdio
+buyapi scan [dir]                  # Scan a local repo for known stack tools
+buyapi search <query>              # Search vendors
+buyapi details <vendorId>          # Fetch one vendor profile
+buyapi compare <ids...>            # Compare vendors
+buyapi recommend <prompt>          # Recommend a stack
+buyapi cost <ids...>               # Estimate cost from workload flags
+buyapi --version                   # Print the CLI version
 ```
 
 Common flags:
@@ -308,7 +308,7 @@ Common flags:
 --json                  Print raw structured JSON
 ```
 
-Future account-backed CLI commands such as `setup`, `login`, `logout`, and `stack sync` are planned but not shipped yet.
+Future account-backed CLI commands such as `setup`, `login`, `logout`, and `stack sync` are planned but not shipped yet. `npx buyapi-mcp` remains supported for existing installs.
 
 ## Covered Categories
 
@@ -336,7 +336,7 @@ The source is fully open so you can verify there's no prompt injection or hidden
 ## Troubleshooting
 
 - If your MCP client supports remote MCP URLs, use `https://buyapi.ai/api/mcp` first.
-- If remote MCP is not supported, configure the local stdio server with `command: "npx"` and `args: ["-y", "buyapi-mcp"]`.
+- If remote MCP is not supported, configure the local stdio server with `command: "npx"` and `args: ["-y", "buyapi"]`.
 - Do not add banners or prompts to the stdio server command; stdout is reserved for MCP protocol messages.
 - If anonymous rate limits are hit, create an API key in the BuyAPI dashboard and pass it as `BUYAPI_API_KEY` where your client supports environment variables.
 - If a tool or vendor is missing, ask BuyAPI anyway. Unknown requests are treated as demand signals for future corpus expansion.

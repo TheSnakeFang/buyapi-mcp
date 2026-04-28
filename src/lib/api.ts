@@ -5,6 +5,7 @@ import type {
   WorkloadInput,
 } from "./types.js";
 import { buildDecisionMatrix, estimateVendorCost } from "./decision.js";
+import { PACKAGE_NAME, PACKAGE_VERSION } from "./version.js";
 
 const API_BASE = process.env.BUYAPI_API_URL || "https://buyapi.ai";
 
@@ -12,7 +13,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "User-Agent": "buyapi-mcp/0.2.0",
+    "User-Agent": `${PACKAGE_NAME}/${PACKAGE_VERSION}`,
   };
 
   const apiKey = process.env.BUYAPI_API_KEY;

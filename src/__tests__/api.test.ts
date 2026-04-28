@@ -134,7 +134,7 @@ describe("recommendStack", () => {
 });
 
 describe("User-Agent header", () => {
-  it("includes buyapi-mcp version in all requests", async () => {
+  it("includes buyapi version in all requests", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ results: [] }),
@@ -143,6 +143,6 @@ describe("User-Agent header", () => {
     await searchVendors("test", "database");
 
     const [, init] = mockFetch.mock.calls[0];
-    expect(init.headers["User-Agent"]).toContain("buyapi-mcp");
+    expect(init.headers["User-Agent"]).toContain("buyapi/0.3.1");
   });
 });

@@ -1,8 +1,10 @@
 import type { WorkloadInput } from "./types.js";
+import { PACKAGE_VERSION } from "./version.js";
 
 export type CliCommand =
   | { name: "mcp" }
   | { name: "help" }
+  | { name: "version" }
   | { name: "scan"; root?: string }
   | {
       name: "search";
@@ -43,9 +45,12 @@ export function parseCliCommand(argv: string[]): CliCommand {
   const command = rawCommand ?? "";
   const { positional, options, json } = parseOptions(rest);
 
-  if (!command) return { name: "mcp" };
+  if (!command || command === "mcp") return { name: "mcp" };
   if (command === "--help" || command === "-h" || command === "help") {
     return { name: "help" };
+  }
+  if (command === "--version" || command === "-v" || command === "version") {
+    return { name: "version" };
   }
 
   if (command === "scan") {
@@ -123,9 +128,12 @@ export function parseCliCommand(argv: string[]): CliCommand {
 export function helpText(): string {
   return `BuyAPI
 
+Version: ${PACKAGE_VERSION}
+
 Commands:
-  buyapi-mcp                         Run the local MCP server over stdio
-  buyapi-mcp scan [dir]              Scan a local repo for known stack tools
+  buyapi                             Run the local MCP server over stdio
+  buyapi mcp                         Run the local MCP server over stdio
+  buyapi scan [dir]                  Scan a local repo for known stack tools
   buyapi search <query>              Search tools in the BuyAPI corpus
   buyapi details <vendor-id>          Show a sourced vendor profile
   buyapi recommend <project>          Recommend a stack for a project
@@ -143,6 +151,8 @@ Options:
   --avg-transaction <n>   Average transaction in USD
   --revenue <n>           Monthly revenue in USD
   --json                  Print raw JSON
+
+Compatibility: npx buyapi-mcp still works for the old package name.
 
 The scan command is local-only and does not upload data.`;
 }

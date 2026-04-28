@@ -18,10 +18,11 @@ import {
   formatUnknown,
   formatVendorProfile,
 } from "./lib/format.js";
+import { PACKAGE_NAME, PACKAGE_VERSION } from "./lib/version.js";
 
 const server = new McpServer({
-  name: "buyapi-mcp",
-  version: "0.2.0",
+  name: PACKAGE_NAME,
+  version: PACKAGE_VERSION,
 });
 
 const workloadSchema = z
@@ -224,6 +225,9 @@ async function main() {
 
 async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
   switch (command.name) {
+    case "version":
+      console.log(`${PACKAGE_NAME} ${PACKAGE_VERSION}`);
+      return;
     case "help":
       console.log(helpText());
       return;
