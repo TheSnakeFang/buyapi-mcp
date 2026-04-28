@@ -7,8 +7,15 @@ import {
   getVendorDetails,
   recommendStack,
   searchVendors,
+  syncStackScan,
 } from "./lib/api.js";
 import { helpText, parseCliCommand } from "./lib/cli.js";
+import {
+  clearStoredApiKey,
+  configPath,
+  readStoredApiKey,
+  writeStoredApiKey,
+} from "./lib/config.js";
 import { formatStackScan, scanStack } from "./lib/scan.js";
 import {
   formatCostEstimates,
@@ -225,14 +232,54 @@ async function main() {
 
 async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
   switch (command.name) {
+    case "setup":
+      console.log(setupText());
+      return;
     case "version":
       console.log(`${PACKAGE_NAME} ${PACKAGE_VERSION}`);
       return;
     case "help":
       console.log(helpText());
       return;
+    case "login":
+      if (!command.apiKey) {
+        console.log(loginHelpText());
+        return;
+      }
+      writeStoredApiKey(command.apiKey);
+      console.log(`BuyAPI API key saved to ${configPath()}`);
+      return;
+    case "logout":
+      clearStoredApiKey();
+      console.log("BuyAPI API key removed.");
+      return;
     case "scan":
-      console.log(formatStackScan(scanStack(command.root ?? process.cwd())));
+      {
+        const scan = scanStack(command.root ?? process.cwd());
+        if (!command.sync) {
+          console.log(
+            command.json ? JSON.stringify(scan, null, 2) : formatStackScan(scan)
+          );
+          return;
+        }
+        if (!process.env.BUYAPI_API_KEY && !readStoredApiKey()) {
+          throw new Error(
+            "scan --sync requires an API key. Run buyapi login <api-key> or set BUYAPI_API_KEY."
+          );
+        }
+        const result = await syncStackScan({
+          projectName:
+            command.projectName ??
+            inferProjectName(command.root ?? process.cwd()),
+          summary: command.summary,
+          scan,
+        });
+        console.log(
+          command.json
+            ? JSON.stringify(result, null, 2)
+            : `Stack ${result.updated ? "updated" : "saved"}: ${result.url}`
+        );
+      }
       return;
     case "search": {
       const result = await searchVendors(command.query, command.category);
@@ -294,6 +341,36 @@ async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
     case "mcp":
       return;
   }
+}
+
+function setupText() {
+  return `BuyAPI setup
+
+Recommended: add the hosted MCP endpoint to your agent.
+  URL: https://buyapi.ai/api/mcp
+
+If your client needs a local stdio server, configure it to run:
+  npx -y buyapi mcp
+
+For stack-aware recommendations:
+  1. Create an API key at https://buyapi.ai/dashboard
+  2. Run: buyapi login <api-key>
+  3. Run: buyapi scan --sync
+
+Read the docs: https://buyapi.ai/docs`;
+}
+
+function loginHelpText() {
+  return `BuyAPI login
+
+Create an API key at https://buyapi.ai/dashboard, then run:
+  buyapi login <api-key>
+
+You can also set BUYAPI_API_KEY in your environment for CI or one-off runs.`;
+}
+
+function inferProjectName(root: string) {
+  return root.split(/[\\/]/).filter(Boolean).at(-1) || "Untitled stack";
 }
 
 main().catch((error) => {

@@ -3,9 +3,19 @@ import { PACKAGE_VERSION } from "./version.js";
 
 export type CliCommand =
   | { name: "mcp" }
+  | { name: "setup" }
+  | { name: "login"; apiKey?: string }
+  | { name: "logout" }
   | { name: "help" }
   | { name: "version" }
-  | { name: "scan"; root?: string }
+  | {
+      name: "scan";
+      root?: string;
+      sync: boolean;
+      projectName?: string;
+      summary?: string;
+      json: boolean;
+    }
   | {
       name: "search";
       query: string;
@@ -45,7 +55,8 @@ export function parseCliCommand(argv: string[]): CliCommand {
   const command = rawCommand ?? "";
   const { positional, options, json } = parseOptions(rest);
 
-  if (!command || command === "mcp") return { name: "mcp" };
+  if (!command || command === "setup") return { name: "setup" };
+  if (command === "mcp") return { name: "mcp" };
   if (command === "--help" || command === "-h" || command === "help") {
     return { name: "help" };
   }
@@ -53,8 +64,23 @@ export function parseCliCommand(argv: string[]): CliCommand {
     return { name: "version" };
   }
 
+  if (command === "login") {
+    return { name: "login", apiKey: positional[0] || options.key };
+  }
+
+  if (command === "logout") {
+    return { name: "logout" };
+  }
+
   if (command === "scan") {
-    return { name: "scan", root: positional[0] };
+    return {
+      name: "scan",
+      root: positional[0],
+      sync: Boolean(options.sync),
+      projectName: options.name,
+      summary: options.summary,
+      json,
+    };
   }
 
   if (command === "search") {
@@ -131,9 +157,13 @@ export function helpText(): string {
 Version: ${PACKAGE_VERSION}
 
 Commands:
-  buyapi                             Run the local MCP server over stdio
+  buyapi                             Show setup options for humans
+  buyapi setup                       Show setup options for humans
   buyapi mcp                         Run the local MCP server over stdio
+  buyapi login <api-key>             Store an API key for CLI sync
+  buyapi logout                      Remove the stored API key
   buyapi scan [dir]                  Scan a local repo for known stack tools
+  buyapi scan --sync                 Scan and save the stack to BuyAPI
   buyapi search <query>              Search tools in the BuyAPI corpus
   buyapi details <vendor-id>          Show a sourced vendor profile
   buyapi recommend <project>          Recommend a stack for a project
@@ -143,6 +173,9 @@ Commands:
 Options:
   --category <name>       Limit search/cost to a category
   --query <text>          Decision context or details focus
+  --name <text>           Stack name for scan sync
+  --summary <text>        Stack notes for scan sync
+  --sync                  Save scan output to your BuyAPI dashboard
   --constraints <text>    Budget, scale, compliance, or existing tools
   --users <n>             User count
   --mau <n>               Monthly active users
@@ -154,7 +187,9 @@ Options:
 
 Note: buyapi-mcp is deprecated on npm. Use npx buyapi for new installs.
 
-The scan command is local-only and does not upload data.`;
+By default, scan is local-only. Use buyapi login and buyapi scan --sync to
+save a private stack to your dashboard. MCP client configs should use
+buyapi mcp when they need a local stdio server.`;
 }
 
 function parseOptions(argv: string[]) {
@@ -171,6 +206,10 @@ function parseOptions(argv: string[]) {
     if (value.startsWith("--")) {
       const key = value.slice(2);
       const next = argv[index + 1];
+      if (key === "sync") {
+        options[key] = "true";
+        continue;
+      }
       if (!next || next.startsWith("--")) {
         throw new Error(`Missing value for --${key}.`);
       }

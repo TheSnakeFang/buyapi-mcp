@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { helpText, parseCliCommand } from "../lib/cli.js";
 
 describe("parseCliCommand", () => {
-  it("defaults to MCP stdio mode with no command", () => {
-    expect(parseCliCommand([])).toEqual({ name: "mcp" });
+  it("defaults to setup mode with no command", () => {
+    expect(parseCliCommand([])).toEqual({ name: "setup" });
   });
 
   it("parses explicit MCP and version commands", () => {
@@ -15,7 +15,40 @@ describe("parseCliCommand", () => {
     expect(parseCliCommand(["scan", "/tmp/project"])).toEqual({
       name: "scan",
       root: "/tmp/project",
+      sync: false,
+      projectName: undefined,
+      summary: undefined,
+      json: false,
     });
+  });
+
+  it("parses scan sync options", () => {
+    expect(
+      parseCliCommand([
+        "scan",
+        "/tmp/project",
+        "--sync",
+        "--name",
+        "My App",
+        "--summary",
+        "Launch stack",
+      ])
+    ).toEqual({
+      name: "scan",
+      root: "/tmp/project",
+      sync: true,
+      projectName: "My App",
+      summary: "Launch stack",
+      json: false,
+    });
+  });
+
+  it("parses login and logout", () => {
+    expect(parseCliCommand(["login", "ba_live_test"])).toEqual({
+      name: "login",
+      apiKey: "ba_live_test",
+    });
+    expect(parseCliCommand(["logout"])).toEqual({ name: "logout" });
   });
 
   it("parses search with category and JSON output", () => {
@@ -62,8 +95,9 @@ describe("parseCliCommand", () => {
   it("prints read-only CLI commands in help", () => {
     const text = helpText();
     expect(text).toContain("buyapi search <query>");
+    expect(text).toContain("buyapi scan --sync");
     expect(text).toContain("buyapi compare <ids...>");
     expect(text).toContain("buyapi-mcp is deprecated");
-    expect(text).toContain("does not upload data");
+    expect(text).toContain("By default, scan is local-only");
   });
 });

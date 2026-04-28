@@ -6,6 +6,8 @@ import type {
 } from "./types.js";
 import { buildDecisionMatrix, estimateVendorCost } from "./decision.js";
 import { PACKAGE_NAME, PACKAGE_VERSION } from "./version.js";
+import { readStoredApiKey } from "./config.js";
+import type { StackScanResult } from "./scan.js";
 
 const API_BASE = process.env.BUYAPI_API_URL || "https://buyapi.ai";
 
@@ -16,7 +18,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     "User-Agent": `${PACKAGE_NAME}/${PACKAGE_VERSION}`,
   };
 
-  const apiKey = process.env.BUYAPI_API_KEY;
+  const apiKey = process.env.BUYAPI_API_KEY || readStoredApiKey();
   if (apiKey) {
     headers["Authorization"] = `Bearer ${apiKey}`;
   }
@@ -101,4 +103,18 @@ export async function estimateCosts(args: {
   return {
     estimates: vendors.map((vendor) => estimateVendorCost(vendor, args.workload)),
   };
+}
+
+export async function syncStackScan(args: {
+  projectName: string;
+  summary?: string;
+  scan: StackScanResult;
+}): Promise<{ slug: string; updated: boolean; url: string }> {
+  return request<{ slug: string; updated: boolean; url: string }>(
+    "/api/stacks/import",
+    {
+      method: "POST",
+      body: JSON.stringify(args),
+    }
+  );
 }

@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-04-27
+
+### Added
+
+- `buyapi setup` and default `buyapi` setup guidance for human installs.
+- `buyapi login <api-key>` and `buyapi logout` for storing CLI credentials.
+- `buyapi scan --sync` for saving detected stack tools to the BuyAPI dashboard.
+
+### Changed
+
+- Local MCP stdio now uses the explicit `buyapi mcp` command in docs and help text.
+
 ## [0.3.2] - 2026-04-27
 
 ### Changed

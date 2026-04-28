@@ -30,20 +30,20 @@ This is the easiest path: the client connects directly to BuyAPI over HTTP, with
 
 ### Local Install
 
-`buyapi@0.3.2` is published on npm:
+Run the setup command for human-facing guidance:
 
 ```bash
-npx buyapi help
+npx buyapi
 ```
 
-In an MCP client config, this command is launched by the client as a local stdio server. You do not run it manually first:
+In an MCP client config, use the explicit `mcp` command. The client launches it as a local stdio server; you do not run it manually first:
 
 ```json
 {
   "mcpServers": {
     "buyapi": {
       "command": "npx",
-      "args": ["-y", "buyapi"]
+      "args": ["-y", "buyapi", "mcp"]
     }
   }
 }
@@ -51,12 +51,19 @@ In an MCP client config, this command is launched by the client as a local stdio
 
 Use the local path when an agent client does not support remote MCP URLs, or when you want the open-source local transport. Hosted MCP is still the recommended default. The older `buyapi-mcp` package is deprecated on npm so new users see one canonical package name.
 
-### Local Stack Scan
+### Stack Scan And Sync
 
-The CLI now has a local-only stack scanner. It inspects common project files and prints detected BuyAPI tools without uploading data or creating an account:
+The CLI has a stack scanner. Plain scan stays local and prints detected tools:
 
 ```bash
 npx buyapi scan
+```
+
+To save a private stack to your BuyAPI dashboard, create an API key, login once, then sync:
+
+```bash
+npx buyapi login ba_live_...
+npx buyapi scan --sync
 ```
 
 `scan` is a human-facing CLI command, not an MCP tool. The MCP server should stay quiet on stdout because stdout carries the MCP protocol.
@@ -256,7 +263,7 @@ Add to your Windsurf MCP config:
   "mcpServers": {
     "buyapi": {
       "command": "npx",
-      "args": ["-y", "buyapi"]
+      "args": ["-y", "buyapi", "mcp"]
     }
   }
 }
@@ -266,9 +273,9 @@ Add to your Windsurf MCP config:
 
 ## API Keys
 
-BuyAPI currently works without an API key at the anonymous rate limit. Signed-in users can create dashboard API keys for keyed access and usage analytics.
+BuyAPI currently works without an API key at the anonymous rate limit. Signed-in users can create dashboard API keys for keyed access, usage analytics, and stack sync.
 
-The local MCP package already forwards `BUYAPI_API_KEY` for future compatibility:
+The local package reads either `BUYAPI_API_KEY` or the key stored by `buyapi login`:
 
 ```json
 {
@@ -286,9 +293,13 @@ The local MCP package already forwards `BUYAPI_API_KEY` for future compatibility
 ## CLI Reference
 
 ```bash
-buyapi                             # Run the local MCP server over stdio
+buyapi                             # Show setup guidance
+buyapi setup                       # Show setup guidance
 buyapi mcp                         # Run the local MCP server over stdio
+buyapi login <api-key>             # Store an API key for CLI sync
+buyapi logout                      # Remove the stored API key
 buyapi scan [dir]                  # Scan a local repo for known stack tools
+buyapi scan --sync                 # Save detected tools to your dashboard
 buyapi search <query>              # Search vendors
 buyapi details <vendorId>          # Fetch one vendor profile
 buyapi compare <ids...>            # Compare vendors
@@ -302,13 +313,16 @@ Common flags:
 ```bash
 --category <name>       Limit search/cost to a category
 --query <text>          Add workload or decision context
+--name <text>           Stack name for scan sync
+--summary <text>        Stack notes for scan sync
+--sync                  Save scan output to your dashboard
 --users <n>             Monthly active users
 --emails <n>            Email sends per month
 --orders <n>            Monthly orders
 --json                  Print raw structured JSON
 ```
 
-Future account-backed CLI commands such as `setup`, `login`, `logout`, and `stack sync` are planned but not shipped yet.
+OAuth-based browser login is still planned. For now, use a dashboard API key with `buyapi login`.
 
 ## Covered Categories
 
@@ -324,7 +338,7 @@ Future account-backed CLI commands such as `setup`, `login`, `logout`, and `stac
 
 This MCP server is a thin TypeScript client that calls the BuyAPI backend API. It contains no vendor data; lightweight comparison and cost formatting mirrors the hosted endpoint while vendor intelligence is served from [buyapi.ai](https://buyapi.ai).
 
-The source is fully open so you can verify there's no prompt injection or hidden behavior. `scan` is local-only and does not upload stack data.
+The source is fully open so you can verify there's no prompt injection or hidden behavior. `scan` is local-only by default; `scan --sync` sends only detected tool metadata, not source code or environment values.
 
 ## Data Transparency
 
@@ -336,7 +350,7 @@ The source is fully open so you can verify there's no prompt injection or hidden
 ## Troubleshooting
 
 - If your MCP client supports remote MCP URLs, use `https://buyapi.ai/api/mcp` first.
-- If remote MCP is not supported, configure the local stdio server with `command: "npx"` and `args: ["-y", "buyapi"]`.
+- If remote MCP is not supported, configure the local stdio server with `command: "npx"` and `args: ["-y", "buyapi", "mcp"]`.
 - Do not add banners or prompts to the stdio server command; stdout is reserved for MCP protocol messages.
 - If anonymous rate limits are hit, create an API key in the BuyAPI dashboard and pass it as `BUYAPI_API_KEY` where your client supports environment variables.
 - If a tool or vendor is missing, ask BuyAPI anyway. Unknown requests are treated as demand signals for future corpus expansion.
