@@ -2,13 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.2] - 2026-04-28
+
+### Added
+
+- Interactive setup now explains whether hosted MCP or local stdio MCP was configured, including the local `npx -y buyapi mcp` command.
+
 ## [0.6.1] - 2026-04-28
 
 ### Added
 
 - Bare `buyapi` / `npx buyapi` now runs an interactive setup flow in TTY terminals.
 - Setup guidance now includes global install instructions for users who do not want to type `npx`.
-- Interactive setup now explains whether hosted MCP or local stdio MCP was configured, including the local `npx -y buyapi mcp` command.
 
 ### Fixed
 
