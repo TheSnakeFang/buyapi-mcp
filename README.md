@@ -8,7 +8,7 @@ BuyAPI helps AI agents and developers make informed infrastructure decisions. Wh
 
 ### Remote MCP (Recommended)
 
-The hosted endpoint is the primary install path and exposes the current `v0.2.0` five-tool contract.
+The hosted endpoint is the primary install path and exposes the current seven-tool contract.
 
 Add to your MCP client config:
 
@@ -64,6 +64,27 @@ Query: "free tier limits for a side project"
 -> Returns: Full pricing tiers, 500MB DB limit, 50K auth users, scaling triggers, and sources
 ```
 
+### `get-vendor-evidence`
+
+Fetch recent reviewed evidence rows for a vendor, category, stack, or comparison.
+
+```
+Subject type: "vendor"
+Subject ID: /database/supabase
+
+-> Returns: Evidence summaries with source URLs, stance, confidence, and observed dates
+```
+
+### `find-similar-stacks`
+
+Find public stack profiles related to a vendor, or recent curated stack examples.
+
+```
+Vendor ID: /database/convex
+
+-> Returns: Similar stack profiles with project summary, audience, stage, tools, and confidence
+```
+
 ### `compare-vendors`
 
 Compare two or more specific vendors for a workload or decision.
@@ -72,7 +93,7 @@ Compare two or more specific vendors for a workload or decision.
 Vendor IDs: ["/database/convex", "/database/supabase", "/database/neon"]
 Query: "realtime TypeScript SaaS with preview environments"
 
--> Returns: Structured decision matrix with fit, tradeoffs, estimated cost, confidence, and sources
+-> Returns: Structured decision matrix with fit, capability-by-capability yes/no/unknown coverage, tradeoffs, estimated cost, confidence, and sources
 ```
 
 ### `estimate-cost`
@@ -185,7 +206,7 @@ Add to your Windsurf MCP config:
 
 ## API Keys
 
-BuyAPI currently works without an API key at the anonymous rate limit. Keyed access is scaffolded in the backend but not publicly shipped yet, so the dashboard does not issue real keys today.
+BuyAPI currently works without an API key at the anonymous rate limit. Signed-in users can create dashboard API keys for keyed access and usage analytics.
 
 The local MCP package already forwards `BUYAPI_API_KEY` for future compatibility:
 
