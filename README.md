@@ -14,6 +14,8 @@ BuyAPI helps AI agents and developers make informed infrastructure decisions. Wh
 
 The hosted endpoint is the primary install path and exposes the current seven-tool contract.
 
+[![Install MCP Server in Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=buyapi&config=eyJ1cmwiOiJodHRwczovL2J1eWFwaS5haS9hcGkvbWNwIn0=)
+
 Add to your MCP client config:
 
 ```json
@@ -145,6 +147,18 @@ Use implementation docs tools such as Context7 after the decision is made and th
 - Include workload numbers when asking about cost: users, monthly active users, email sends, storage, bandwidth, or monthly orders.
 - Include constraints that matter: solo founder, B2B SaaS, HIPAA/SOC2 later, no credit card free tier, preview environments, realtime collaboration, or low lock-in.
 - Ask for alternatives when you want tradeoffs, not just a single recommendation.
+
+Common launch-corpus IDs:
+
+```txt
+/database/convex
+/database/supabase
+/database/neon
+/auth/clerk
+/hosting/vercel
+/payments/stripe
+/email/resend
+```
 
 ## Available Tools
 
