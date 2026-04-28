@@ -1,2 +1,2 @@
 export const PACKAGE_NAME = "buyapi";
-export const PACKAGE_VERSION = "0.5.1";
+export const PACKAGE_VERSION = "0.6.0";

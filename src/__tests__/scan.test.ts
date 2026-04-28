@@ -15,6 +15,10 @@ describe("scanStack", () => {
           convex: "^1.0.0",
           "@clerk/nextjs": "^1.0.0",
           stripe: "^1.0.0",
+          "ai-newthing": "^0.1.0",
+        },
+        devDependencies: {
+          vitest: "^4.0.0",
         },
       })
     );
@@ -28,6 +32,21 @@ describe("scanStack", () => {
         "/payments/stripe",
         "/hosting/vercel",
       ])
+    );
+    expect(result.unknownDependencies).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          packageName: "ai-newthing",
+          dependencyType: "dependencies",
+        }),
+        expect.objectContaining({
+          packageName: "vitest",
+          dependencyType: "devDependencies",
+        }),
+      ])
+    );
+    expect(result.unknownDependencies.map((dep) => dep.packageName)).not.toContain(
+      "convex"
     );
   });
 
@@ -62,6 +81,21 @@ describe("scanStack", () => {
 
     const text = formatStackScan(result, { verbose: true });
     expect(text).toContain("methods: env");
+  });
+
+  it("prints unknown package candidates in verbose mode only", () => {
+    const root = mkdtempSync(join(tmpdir(), "buyapi-scan-"));
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ dependencies: { "brand-new-ai-sdk": "0.0.1" } })
+    );
+
+    expect(formatStackScan(scanStack(root))).not.toContain(
+      "Unknown package candidates"
+    );
+    expect(formatStackScan(scanStack(root), { verbose: true })).toContain(
+      "brand-new-ai-sdk@0.0.1"
+    );
   });
 
   it("hides supporting detections unless includeAll is set", () => {

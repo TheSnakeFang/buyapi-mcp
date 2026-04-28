@@ -75,6 +75,13 @@ The CLI has a stack scanner. Plain scan stays local and prints detected tools:
 npx buyapi scan
 ```
 
+Use `--verbose` to see evidence and unknown package candidates found in
+`package.json`:
+
+```bash
+npx buyapi scan --verbose
+```
+
 To save a private stack to your BuyAPI dashboard, login once, then sync:
 
 ```bash
@@ -82,7 +89,7 @@ npx buyapi login
 npx buyapi scan --sync --yes
 ```
 
-`buyapi login` opens the browser, signs in through the dashboard, creates a CLI API key, and stores it locally. You can still pass an existing key with `buyapi login ba_live_...` or use `BUYAPI_API_KEY` in CI.
+`buyapi login` opens the browser, signs in through the dashboard, creates a CLI API key, and stores it locally. You can still pass an existing key with `buyapi login ba_live_...` or use `BUYAPI_API_KEY` in CI. Sync uploads known detected tools plus unknown top-level package names, versions, and evidence so BuyAPI can review emerging tools. It does not upload source code, environment values, or file contents.
 
 `scan` is a human-facing CLI command, not an MCP tool. The MCP server should stay quiet on stdout because stdout carries the MCP protocol.
 
@@ -365,7 +372,7 @@ Common flags:
 
 This MCP server is a thin TypeScript client that calls the BuyAPI backend API. It contains no vendor data; lightweight comparison and cost formatting mirrors the hosted endpoint while vendor intelligence is served from [buyapi.ai](https://buyapi.ai).
 
-The source is fully open so you can verify there's no prompt injection or hidden behavior. `scan` is local-only by default; `scan --sync` sends only detected tool metadata, not source code or environment values.
+The source is fully open so you can verify there's no prompt injection or hidden behavior. `scan` is local-only by default; `scan --sync` sends detected tool metadata and unknown package candidates for review, not source code or environment values.
 
 ## Data Transparency
 

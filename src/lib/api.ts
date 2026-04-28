@@ -110,8 +110,18 @@ export async function syncStackScan(args: {
   stackSlug?: string;
   summary?: string;
   scan: StackScanResult;
-}): Promise<{ slug: string; updated: boolean; url: string }> {
-  return request<{ slug: string; updated: boolean; url: string }>(
+}): Promise<{
+  slug: string;
+  updated: boolean;
+  url: string;
+  candidateCount?: number;
+}> {
+  return request<{
+    slug: string;
+    updated: boolean;
+    url: string;
+    candidateCount?: number;
+  }>(
     "/api/stacks/import",
     {
       method: "POST",

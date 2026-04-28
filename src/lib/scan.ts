@@ -10,9 +10,17 @@ export type StackScanTool = {
   primary: boolean;
 };
 
+export type StackScanUnknownDependency = {
+  packageName: string;
+  version: string;
+  dependencyType: "dependencies" | "devDependencies" | "optionalDependencies";
+  evidence: string[];
+};
+
 export type StackScanResult = {
   root: string;
   tools: StackScanTool[];
+  unknownDependencies: StackScanUnknownDependency[];
   filesChecked: string[];
   warnings: string[];
 };
@@ -64,21 +72,28 @@ export function scanStack(
   const filesChecked: string[] = [];
   const warnings: string[] = [];
   const detected = new Map<string, StackScanTool>();
+  const unknownDependencies: StackScanUnknownDependency[] = [];
 
   const packageJsonPath = join(root, "package.json");
   if (existsSync(packageJsonPath)) {
     filesChecked.push("package.json");
     try {
       const pkg = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-      const deps = {
-        ...(pkg.dependencies ?? {}),
-        ...(pkg.devDependencies ?? {}),
-        ...(pkg.optionalDependencies ?? {}),
-      } as Record<string, string>;
+      const dependencyGroups = readDependencyGroups(pkg);
+      const deps = Object.fromEntries(
+        dependencyGroups.flatMap((group) =>
+          Object.entries(group.dependencies).map(([name, version]) => [
+            name,
+            version,
+          ])
+        )
+      ) as Record<string, string>;
+      const matchedPackages = new Set<string>();
 
       for (const rule of PACKAGE_RULES) {
         const matches = rule.packages.filter((name) => deps[name]);
         if (matches.length > 0) {
+          for (const match of matches) matchedPackages.add(match);
           addDetected(detected, {
             vendorSlug: rule.vendorSlug,
             category: rule.category,
@@ -86,6 +101,18 @@ export function scanStack(
             detectionMethods: ["manifest"],
             confidence: "high",
             primary: rule.primary ?? true,
+          });
+        }
+      }
+
+      for (const group of dependencyGroups) {
+        for (const [packageName, version] of Object.entries(group.dependencies)) {
+          if (matchedPackages.has(packageName)) continue;
+          unknownDependencies.push({
+            packageName,
+            version,
+            dependencyType: group.type,
+            evidence: [`package.json:${group.type}:${packageName}`],
           });
         }
       }
@@ -131,6 +158,9 @@ export function scanStack(
       .sort((a, b) =>
         `${a.category}:${a.vendorSlug}`.localeCompare(`${b.category}:${b.vendorSlug}`)
       ),
+    unknownDependencies: unknownDependencies.sort((a, b) =>
+      a.packageName.localeCompare(b.packageName)
+    ),
     filesChecked: [...new Set(filesChecked)].sort(),
     warnings,
   };
@@ -170,6 +200,18 @@ export function formatStackScan(
     lines.push("", "Warnings:", ...result.warnings.map((warning) => `- ${warning}`));
   }
 
+  if (options.verbose && result.unknownDependencies.length > 0) {
+    lines.push("", "Unknown package candidates:");
+    for (const dependency of result.unknownDependencies.slice(0, 40)) {
+      lines.push(
+        `- ${dependency.packageName}@${dependency.version} (${dependency.dependencyType})`
+      );
+    }
+    if (result.unknownDependencies.length > 40) {
+      lines.push(`- ...${result.unknownDependencies.length - 40} more`);
+    }
+  }
+
   lines.push(
     "",
     options.syncHint
@@ -177,6 +219,30 @@ export function formatStackScan(
       : "This command is local-only. It does not upload your stack or create an account."
   );
   return lines.join("\n");
+}
+
+function readDependencyGroups(pkg: unknown): Array<{
+  type: StackScanUnknownDependency["dependencyType"];
+  dependencies: Record<string, string>;
+}> {
+  const record = pkg as Record<string, unknown>;
+  return [
+    { type: "dependencies" as const, dependencies: asStringRecord(record.dependencies) },
+    { type: "devDependencies" as const, dependencies: asStringRecord(record.devDependencies) },
+    {
+      type: "optionalDependencies" as const,
+      dependencies: asStringRecord(record.optionalDependencies),
+    },
+  ];
+}
+
+function asStringRecord(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string"
+    )
+  );
 }
 
 function addDetected(

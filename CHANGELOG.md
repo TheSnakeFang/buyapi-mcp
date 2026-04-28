@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2026-04-28
+
+### Added
+
+- Scanner now includes unknown top-level npm package candidates in verbose local output.
+- Authenticated `buyapi scan --sync` sends unknown package candidates to BuyAPI for admin review, alongside known detected tools.
+- Sync success output reports how many unknown package candidates were queued.
+
 ## [0.5.1] - 2026-04-28
 
 ### Fixed

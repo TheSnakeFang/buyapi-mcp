@@ -2,7 +2,7 @@
 
 Current status and planned features for the BuyAPI MCP server.
 
-## Current (v0.5)
+## Current (v0.6)
 
 - [x] `resolve-vendor` - search vendors by query/category with relevance ranking and unknown-corpus fallback
 - [x] `get-vendor-details` - full vendor profiles with pricing, limits, comparisons, and source provenance
@@ -16,6 +16,7 @@ Current status and planned features for the BuyAPI MCP server.
 - [x] Browser `buyapi login`, `logout`, `whoami`, and `BUYAPI_API_KEY` support
 - [x] `buyapi setup <client>` config installer for Claude Code, Cursor, Codex, Windsurf, and Cline
 - [x] Account-backed `scan --sync --yes` for private stack sync
+- [x] Unknown npm package candidates from authenticated scans queued for BuyAPI admin review
 
 ### Covered Categories
 - Database (Supabase, Convex, Neon, PlanetScale, Firebase)
@@ -28,7 +29,7 @@ Current status and planned features for the BuyAPI MCP server.
 
 ### Near-term
 - [x] Remote MCP endpoint (`https://buyapi.ai/api/mcp`) - no local install needed
-- [x] npm publish - `buyapi@0.5.0` installable from registry via `npx buyapi`
+- [x] npm publish - `buyapi@0.6.0` installable from registry via `npx buyapi`
 - [x] compatibility publish - `buyapi-mcp@0.3.1` is deprecated with a rename notice
 - [x] GitHub Release - `v0.2.0` release notes published
 - [x] Release workflow skips npm publish when a version already exists
@@ -37,6 +38,7 @@ Current status and planned features for the BuyAPI MCP server.
 - [x] Keep public README aligned with app repo's `docs/CURRENT_STATE.md`
 - [x] Publish/rename broader CLI package so `npx buyapi scan` works directly
 - [ ] Expand scanner fixture coverage and detection registry provenance
+- [ ] Add AI-assisted package enrichment after human review queue proves useful
 
 ### Future
 - [ ] New categories: analytics, monitoring, CMS, search, vector databases

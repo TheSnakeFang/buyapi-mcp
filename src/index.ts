@@ -347,7 +347,11 @@ async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
         console.log(
           command.json
             ? JSON.stringify(result, null, 2)
-            : `Stack ${result.updated ? "updated" : "saved"}: ${result.url}`
+            : `Stack ${result.updated ? "updated" : "saved"}: ${result.url}${
+                result.candidateCount
+                  ? `\nQueued ${result.candidateCount} unknown package candidates for review.`
+                  : ""
+              }`
         );
       }
       return;
