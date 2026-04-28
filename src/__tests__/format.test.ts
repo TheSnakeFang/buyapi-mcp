@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  formatDecisionMatrix,
   formatSearchResults,
   formatVendorProfile,
   formatStackRecommendation,
@@ -58,6 +59,41 @@ describe("formatSearchResults", () => {
     expect(text).toContain("---");
     expect(text).toContain("Supabase");
     expect(text).toContain("Neon");
+  });
+});
+
+describe("formatDecisionMatrix", () => {
+  it("includes capability-by-capability comparison rows", () => {
+    const text = formatDecisionMatrix([
+      {
+        layer: "database",
+        vendor: "/database/convex",
+        vendorName: "Convex",
+        fit: "strong",
+        why: "Good fit.",
+        capabilities: [
+          {
+            capability: "realtime",
+            support: "yes",
+            evidence: "Realtime sync",
+          },
+          {
+            capability: "preview environments",
+            support: "unknown",
+            evidence: "No explicit preview environment evidence is recorded.",
+          },
+        ],
+        tradeoffs: [],
+        estimatedMonthlyCost: "$25/month",
+        confidence: "high",
+        dataFreshness: "fresh",
+        sources: [],
+      },
+    ]);
+
+    expect(text).toContain("Capabilities:");
+    expect(text).toContain("realtime: yes");
+    expect(text).toContain("preview environments: unknown");
   });
 });
 

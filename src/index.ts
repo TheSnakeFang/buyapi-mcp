@@ -8,6 +8,7 @@ import {
   recommendStack,
   searchVendors,
 } from "./lib/api.js";
+import { helpText, parseCliCommand } from "./lib/cli.js";
 import { formatStackScan, scanStack } from "./lib/scan.js";
 import {
   formatCostEstimates,
@@ -210,27 +211,85 @@ Use this when the user is starting a project or asks for a complete stack choice
 );
 
 async function main() {
-  const command = process.argv[2];
-  if (command === "scan") {
-    const root = process.argv[3] ?? process.cwd();
-    console.log(formatStackScan(scanStack(root)));
-    return;
-  }
-
-  if (command === "--help" || command === "-h" || command === "help") {
-    console.log(`BuyAPI
-
-Commands:
-  buyapi-mcp              Run the local MCP server over stdio
-  buyapi-mcp scan [dir]   Scan a local repo for known stack tools
-
-The scan command is local-only and does not upload data.`);
+  const command = parseCliCommand(process.argv.slice(2));
+  if (command.name !== "mcp") {
+    await runCliCommand(command);
     return;
   }
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("BuyAPI MCP server running on stdio");
+}
+
+async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
+  switch (command.name) {
+    case "help":
+      console.log(helpText());
+      return;
+    case "scan":
+      console.log(formatStackScan(scanStack(command.root ?? process.cwd())));
+      return;
+    case "search": {
+      const result = await searchVendors(command.query, command.category);
+      console.log(
+        command.json
+          ? JSON.stringify(result, null, 2)
+          : result.unknown
+            ? formatUnknown(result.unknown)
+            : formatSearchResults(result.results)
+      );
+      return;
+    }
+    case "details": {
+      const result = await getVendorDetails(command.vendorId, command.query);
+      console.log(
+        command.json ? JSON.stringify(result, null, 2) : formatVendorProfile(result)
+      );
+      return;
+    }
+    case "recommend": {
+      const result = await recommendStack(
+        command.projectDescription,
+        command.constraints,
+        command.workload
+      );
+      console.log(
+        command.json
+          ? JSON.stringify(result, null, 2)
+          : formatStackRecommendation(result)
+      );
+      return;
+    }
+    case "compare": {
+      const result = await compareVendors(
+        command.vendorIds,
+        command.query,
+        command.workload
+      );
+      console.log(
+        command.json
+          ? JSON.stringify(result, null, 2)
+          : formatDecisionMatrix(result.decisionMatrix)
+      );
+      return;
+    }
+    case "cost": {
+      const result = await estimateCosts({
+        vendorIds: command.vendorIds,
+        category: command.category,
+        workload: command.workload,
+      });
+      console.log(
+        command.json
+          ? JSON.stringify(result, null, 2)
+          : formatCostEstimates(result.estimates)
+      );
+      return;
+    }
+    case "mcp":
+      return;
+  }
 }
 
 main().catch((error) => {

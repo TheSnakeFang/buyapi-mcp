@@ -151,6 +151,15 @@ export function formatDecisionMatrix(rows: DecisionMatrixRow[]): string {
         `Cost: ${row.estimatedMonthlyCost}`,
         `Confidence: ${row.confidence}`,
       ];
+      if (row.capabilities.length) {
+        lines.push(
+          "Capabilities:",
+          ...row.capabilities.map(
+            (capability) =>
+              `- ${capability.capability}: ${capability.support} (${capability.evidence})`
+          )
+        );
+      }
       if (row.tradeoffs.length) {
         lines.push(`Tradeoffs: ${row.tradeoffs.join("; ")}`);
       }

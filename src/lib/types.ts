@@ -168,6 +168,11 @@ export interface DecisionMatrixRow {
   vendorName: string;
   fit: "strong" | "reasonable" | "weak";
   why: string;
+  capabilities: {
+    capability: string;
+    support: "yes" | "partial" | "no" | "unknown";
+    evidence: string;
+  }[];
   tradeoffs: string[];
   estimatedMonthlyCost: string;
   confidence: "high" | "medium" | "low";

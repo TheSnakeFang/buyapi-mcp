@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Local-only `scan` command for detecting known stack tools from project files.
+- Read-only CLI commands: `search`, `details`, `recommend`, `compare`, and `cost`.
 - Hosted MCP endpoint now exposes `get-vendor-evidence` and `find-similar-stacks`.
 
 ## [0.2.0] - 2026-04-21

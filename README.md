@@ -38,7 +38,21 @@ The CLI now has a local-only stack scanner. It inspects common project files and
 npx buyapi-mcp scan
 ```
 
-The package also exposes a `buyapi` binary for the future broader CLI. Publishing a separate `buyapi` npm package would be required before `npx buyapi scan` works from a clean machine.
+The package also exposes a `buyapi` binary when installed. Publishing a separate `buyapi` npm package would be required before `npx buyapi scan` works from a clean machine.
+
+### Read-Only CLI
+
+The local package can query BuyAPI without starting an MCP client:
+
+```bash
+npx buyapi-mcp search "realtime database with preview environments" --category database
+npx buyapi-mcp details /database/convex
+npx buyapi-mcp compare /database/convex /database/supabase --query "realtime SaaS"
+npx buyapi-mcp recommend "B2B AI SaaS with teams and usage billing" --users 1000
+npx buyapi-mcp cost /email/ses --emails 50000
+```
+
+Use `--json` on read-only commands to print the raw structured response.
 
 ## Available Tools
 

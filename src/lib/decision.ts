@@ -77,6 +77,8 @@ export function buildDecisionMatrix(
   query: string,
   workload: WorkloadInput = {}
 ): DecisionMatrixRow[] {
+  const requestedCapabilities = extractRequestedCapabilities(query);
+
   return vendors.map((vendor, index) => {
     const cost = estimateVendorCost(vendor, workload);
     return {
@@ -85,6 +87,9 @@ export function buildDecisionMatrix(
       vendorName: vendor.name,
       fit: index === 0 ? "strong" : index <= 2 ? "reasonable" : "weak",
       why: `${vendor.name} is ${vendor.positioning.toLowerCase()} for this query; cost basis is ${cost.display}.`,
+      capabilities: requestedCapabilities.map((capability) =>
+        assessCapability(vendor, capability)
+      ),
       tradeoffs: vendor.signals.knownIssues.slice(0, 2),
       estimatedMonthlyCost: cost.display,
       confidence: cost.confidence,
@@ -92,6 +97,136 @@ export function buildDecisionMatrix(
       sources: buildVendorClaims(vendor),
     };
   });
+}
+
+type CapabilityDefinition = {
+  label: string;
+  queryPatterns: RegExp[];
+  positivePatterns: RegExp[];
+  partialPatterns?: RegExp[];
+  negativePatterns?: RegExp[];
+};
+
+const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
+  {
+    label: "realtime",
+    queryPatterns: [/\breal[-\s]?time\b/i, /\blive updates?\b/i, /\bcollaboration\b/i],
+    positivePatterns: [/\breal[-\s]?time\b/i, /\bwebsockets?\b/i, /\blive updates?\b/i, /\breactive queries?\b/i],
+    partialPatterns: [/\bsubscriptions?\b/i],
+  },
+  {
+    label: "preview environments",
+    queryPatterns: [/\bpreview\b/i, /\bbranch(?:es|ing)?\b/i, /\benvironments?\b/i],
+    positivePatterns: [/\bpreview\b/i, /\bbranch(?:es|ing)?\b/i, /\bbranches\b/i, /\bstaging environments?\b/i],
+    negativePatterns: [/\bno native preview\b/i, /\bmust configure manually\b/i],
+  },
+  {
+    label: "auth",
+    queryPatterns: [/\bauth\b/i, /\bauthentication\b/i, /\blogin\b/i, /\boauth\b/i],
+    positivePatterns: [/\bauth\b/i, /\bauthentication\b/i, /\boauth\b/i, /\bmagic links?\b/i, /\bsso\b/i],
+  },
+  {
+    label: "storage",
+    queryPatterns: [/\bstorage\b/i, /\bfile uploads?\b/i, /\bobject storage\b/i, /\bs3\b/i],
+    positivePatterns: [/\bstorage\b/i, /\bfile uploads?\b/i, /\bobject storage\b/i, /\bs3\b/i],
+  },
+  {
+    label: "sql",
+    queryPatterns: [/\bsql\b/i, /\bpostgres\b/i, /\bmysql\b/i],
+    positivePatterns: [/\bsql\b/i, /\bpostgres\b/i, /\bmysql\b/i],
+    negativePatterns: [/\bno raw sql\b/i, /\bdon't expose sql\b/i],
+  },
+];
+
+function extractRequestedCapabilities(query: string): string[] {
+  if (!query.trim()) return [];
+  return CAPABILITY_DEFINITIONS.filter((capability) =>
+    capability.queryPatterns.some((pattern) => pattern.test(query))
+  ).map((capability) => capability.label);
+}
+
+function assessCapability(
+  vendor: VendorProfile,
+  capability: string
+): DecisionMatrixRow["capabilities"][number] {
+  const definition = CAPABILITY_DEFINITIONS.find(
+    (item) => item.label === capability
+  );
+  if (!definition) {
+    return {
+      capability,
+      support: "unknown",
+      evidence: "BuyAPI has no capability rule for this query term yet.",
+    };
+  }
+
+  const directFeature = vendor.features.find((feature) =>
+    matchesAny(`${feature.key} ${feature.notes}`, definition.positivePatterns)
+  );
+  if (directFeature) {
+    return {
+      capability,
+      support: directFeature.included ? "yes" : "no",
+      evidence: `${directFeature.key}: ${directFeature.notes || directFeature.tier}`,
+    };
+  }
+
+  const negativeIssue = [
+    ...vendor.signals.knownIssues,
+    ...vendor.comparisons.flatMap((comparison) => [
+      comparison.advantage,
+      comparison.disadvantage,
+    ]),
+  ].find((text) => matchesAny(text, definition.negativePatterns ?? []));
+  if (negativeIssue) {
+    return { capability, support: "no", evidence: negativeIssue };
+  }
+
+  const haystack = [
+    vendor.name,
+    vendor.category,
+    ...(vendor.subcategories ?? []),
+    vendor.description,
+    vendor.positioning,
+    ...vendor.features.flatMap((feature) => [feature.key, feature.notes]),
+    ...vendor.limits.flatMap((limit) => [
+      limit.dimension,
+      limit.free,
+      limit.paid,
+      limit.notes,
+    ]),
+    ...vendor.signals.knownIssues,
+    ...vendor.comparisons.flatMap((comparison) => [
+      comparison.advantage,
+      comparison.disadvantage,
+    ]),
+  ].join(" ");
+
+  if (matchesAny(haystack, definition.positivePatterns)) {
+    return {
+      capability,
+      support: "yes",
+      evidence: `Mentioned in ${vendor.name} profile data.`,
+    };
+  }
+
+  if (matchesAny(haystack, definition.partialPatterns ?? [])) {
+    return {
+      capability,
+      support: "partial",
+      evidence: `Related support appears in ${vendor.name} data, but the exact capability is not explicit.`,
+    };
+  }
+
+  return {
+    capability,
+    support: "unknown",
+    evidence: `No explicit ${capability} evidence is recorded for ${vendor.name}.`,
+  };
+}
+
+function matchesAny(text: string, patterns: RegExp[]): boolean {
+  return patterns.some((pattern) => pattern.test(text));
 }
 
 function estimateUsageCost(
