@@ -22,6 +22,8 @@ Add to your MCP client config:
 }
 ```
 
+This is the easiest path: the client connects directly to BuyAPI over HTTP, with no local process and no npm install.
+
 ### Local Install
 
 `buyapi-mcp@0.2.0` is published on npm:
@@ -29,6 +31,21 @@ Add to your MCP client config:
 ```bash
 npx buyapi-mcp
 ```
+
+In an MCP client config, this command is launched by the client as a local stdio server. You do not run it manually first:
+
+```json
+{
+  "mcpServers": {
+    "buyapi": {
+      "command": "npx",
+      "args": ["-y", "buyapi-mcp"]
+    }
+  }
+}
+```
+
+Use the local path when an agent client does not support remote MCP URLs, or when you want the open-source local transport. Hosted MCP is still the recommended default.
 
 ### Local Stack Scan
 
@@ -39,6 +56,8 @@ npx buyapi-mcp scan
 ```
 
 The package also exposes a `buyapi` binary when installed. Publishing a separate `buyapi` npm package would be required before `npx buyapi scan` works from a clean machine.
+
+`scan` is a human-facing CLI command, not an MCP tool. The MCP server should stay quiet on stdout because stdout carries the MCP protocol.
 
 ### Read-Only CLI
 
