@@ -143,6 +143,6 @@ describe("User-Agent header", () => {
     await searchVendors("test", "database");
 
     const [, init] = mockFetch.mock.calls[0];
-    expect(init.headers["User-Agent"]).toContain("buyapi/0.5.0");
+    expect(init.headers["User-Agent"]).toContain("buyapi/0.5.1");
   });
 });

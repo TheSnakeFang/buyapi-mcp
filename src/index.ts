@@ -472,6 +472,6 @@ async function confirmSync(toolCount: number): Promise<boolean> {
 }
 
 main().catch((error) => {
-  console.error("Fatal error:", error);
+  console.error(error instanceof Error ? `Error: ${error.message}` : String(error));
   process.exit(1);
 });

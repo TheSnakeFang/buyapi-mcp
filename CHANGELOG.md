@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2026-04-28
+
+### Fixed
+
+- CLI user-facing errors now print concise messages instead of stack traces.
+
 ## [0.5.0] - 2026-04-28
 
 ### Added

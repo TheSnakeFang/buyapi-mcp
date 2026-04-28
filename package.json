@@ -1,6 +1,6 @@
 {
   "name": "buyapi",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "BuyAPI CLI and MCP server — unbiased vendor intelligence for AI coding agents",
   "type": "module",
   "main": "dist/index.js",
