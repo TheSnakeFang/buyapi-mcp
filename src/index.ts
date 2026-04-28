@@ -485,6 +485,7 @@ async function runInteractiveSetup(defaultMode: "remote" | "local") {
     console.log(
       result.changed ? "Updated config." : "Config was already up to date."
     );
+    printSetupModeSummary(mode);
 
     const loginAnswer = await rl.question(
       "Login now for higher limits and stack sync? [Y/n] "
@@ -499,11 +500,26 @@ async function runInteractiveSetup(defaultMode: "remote" | "local") {
 
     console.log("");
     console.log("Next steps:");
+    console.log("  Restart your agent so it reloads MCP config.");
     console.log("  buyapi scan");
     console.log("  buyapi scan --sync --yes");
+    console.log("");
+    console.log("If you do not want to type npx later:");
+    console.log("  npm install -g buyapi");
   } finally {
     rl.close();
   }
+}
+
+function printSetupModeSummary(mode: "remote" | "local") {
+  if (mode === "remote") {
+    console.log(`Configured hosted MCP: ${MCP_URL}`);
+    return;
+  }
+  console.log("Configured local MCP over stdio.");
+  console.log("Your agent will run this command when it starts BuyAPI:");
+  console.log("  npx -y buyapi mcp");
+  console.log("You do not need to run that server manually.");
 }
 
 function inferProjectName(root: string) {

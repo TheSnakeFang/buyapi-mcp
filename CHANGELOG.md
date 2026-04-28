@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - Bare `buyapi` / `npx buyapi` now runs an interactive setup flow in TTY terminals.
 - Setup guidance now includes global install instructions for users who do not want to type `npx`.
+- Interactive setup now explains whether hosted MCP or local stdio MCP was configured, including the local `npx -y buyapi mcp` command.
 
 ### Fixed
 
