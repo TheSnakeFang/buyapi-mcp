@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Read-only CLI commands: `search`, `details`, `recommend`, `compare`, and `cost`.
 - Hosted MCP endpoint now exposes `get-vendor-evidence` and `find-similar-stacks`.
 - README clarification for hosted MCP vs local stdio MCP vs human-facing CLI commands.
+- README sections for decision prompts, vendor-ID tips, CLI reference, troubleshooting, and data disclaimer.
 
 ## [0.2.0] - 2026-04-21
 

@@ -2,6 +2,10 @@
 
 > Unbiased vendor intelligence for AI coding agents.
 
+[![Website](https://img.shields.io/badge/Website-buyapi.ai-blue)](https://buyapi.ai)
+[![NPM Version](https://img.shields.io/npm/v/buyapi-mcp?color=red)](https://www.npmjs.com/package/buyapi-mcp)
+[![MIT licensed](https://img.shields.io/npm/l/buyapi-mcp)](./LICENSE)
+
 BuyAPI helps AI agents and developers make informed infrastructure decisions. When your agent needs to pick a database, auth provider, hosting platform, payment processor, or email provider, BuyAPI provides current, structured, neutral vendor comparisons - not training data defaults.
 
 ## Quick Start
@@ -72,6 +76,31 @@ npx buyapi-mcp cost /email/ses --emails 50000
 ```
 
 Use `--json` on read-only commands to print the raw structured response.
+
+## When To Use BuyAPI
+
+Use BuyAPI when the question is a vendor or stack decision:
+
+```txt
+Should I use Convex, Supabase, or Neon for a realtime B2B SaaS?
+```
+
+```txt
+Estimate the email cost for 50,000 transactional sends/month.
+```
+
+```txt
+What auth provider should I use for organizations, SSO later, and a generous free tier?
+```
+
+Use implementation docs tools such as Context7 after the decision is made and the agent needs exact APIs, code examples, or version-specific setup steps.
+
+## Tips For Better Answers
+
+- Use BuyAPI vendor IDs when you know them, e.g. `/database/convex`, `/database/supabase`, `/hosting/vercel`.
+- Include workload numbers when asking about cost: users, monthly active users, email sends, storage, bandwidth, or monthly orders.
+- Include constraints that matter: solo founder, B2B SaaS, HIPAA/SOC2 later, no credit card free tier, preview environments, realtime collaboration, or low lock-in.
+- Ask for alternatives when you want tradeoffs, not just a single recommendation.
 
 ## Available Tools
 
@@ -256,6 +285,31 @@ The local MCP package already forwards `BUYAPI_API_KEY` for future compatibility
 }
 ```
 
+## CLI Reference
+
+```bash
+buyapi-mcp                         # Run the local MCP server over stdio
+buyapi-mcp scan [dir]              # Scan a local repo for known stack tools
+buyapi-mcp search <query>          # Search vendors
+buyapi-mcp details <vendorId>      # Fetch one vendor profile
+buyapi-mcp compare <ids...>        # Compare vendors
+buyapi-mcp recommend <prompt>      # Recommend a stack
+buyapi-mcp cost <ids...>           # Estimate cost from workload flags
+```
+
+Common flags:
+
+```bash
+--category <name>       Limit search/cost to a category
+--query <text>          Add workload or decision context
+--users <n>             Monthly active users
+--emails <n>            Email sends per month
+--orders <n>            Monthly orders
+--json                  Print raw structured JSON
+```
+
+Future account-backed CLI commands such as `setup`, `login`, `logout`, and `stack sync` are planned but not shipped yet.
+
 ## Covered Categories
 
 | Category | Vendors |
@@ -278,6 +332,18 @@ The source is fully open so you can verify there's no prompt injection or hidden
 - Every profile shows when it was last updated and data source
 - BuyAPI does not accept payment from vendors for ranking influence
 - Inaccurate-data reporting and vendor claiming are roadmap items, not live product flows yet.
+
+## Troubleshooting
+
+- If your MCP client supports remote MCP URLs, use `https://buyapi.ai/api/mcp` first.
+- If remote MCP is not supported, configure the local stdio server with `command: "npx"` and `args: ["-y", "buyapi-mcp"]`.
+- Do not add banners or prompts to the stdio server command; stdout is reserved for MCP protocol messages.
+- If anonymous rate limits are hit, create an API key in the BuyAPI dashboard and pass it as `BUYAPI_API_KEY` where your client supports environment variables.
+- If a tool or vendor is missing, ask BuyAPI anyway. Unknown requests are treated as demand signals for future corpus expansion.
+
+## Disclaimer
+
+BuyAPI profiles combine first-party sources, manual review, public evidence, and structured estimates. Vendor data can become stale or incomplete, especially pricing and limits. Use BuyAPI as a decision-support layer, verify critical production commitments directly with the vendor, and report outdated facts through the website when the reporting flow is available.
 
 ## License
 
