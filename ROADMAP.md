@@ -15,6 +15,7 @@ Current status and planned features for the BuyAPI MCP server.
 - [x] Local-only `scan` command for package/config-based stack detection
 - [x] Browser `buyapi login`, `logout`, `whoami`, and `BUYAPI_API_KEY` support
 - [x] `buyapi setup <client>` config installer for Claude Code, Cursor, Codex, Windsurf, and Cline
+- [x] Interactive `buyapi` setup for choosing a client, installing config, and optional login
 - [x] Account-backed `scan --sync --yes` for private stack sync
 - [x] Unknown npm package candidates from authenticated scans queued for BuyAPI admin review
 

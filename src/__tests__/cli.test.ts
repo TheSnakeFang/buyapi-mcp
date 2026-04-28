@@ -12,6 +12,12 @@ describe("parseCliCommand", () => {
   });
 
   it("parses setup clients", () => {
+    expect(parseCliCommand(["--local"])).toEqual({
+      name: "setup",
+      client: undefined,
+      mode: "local",
+      print: false,
+    });
     expect(parseCliCommand(["setup", "cursor"])).toEqual({
       name: "setup",
       client: "cursor",
@@ -162,5 +168,6 @@ describe("parseCliCommand", () => {
     expect(text).toContain("buyapi compare <ids...>");
     expect(text).toContain("buyapi-mcp is deprecated");
     expect(text).toContain("By default, scan is local-only");
+    expect(text).toContain("npm install -g buyapi");
   });
 });

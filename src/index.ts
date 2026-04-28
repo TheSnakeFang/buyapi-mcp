@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { createInterface } from "node:readline/promises";
 import { z } from "zod";
 import {
   compareVendors,
@@ -243,7 +244,11 @@ async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
   switch (command.name) {
     case "setup":
       if (!command.client) {
-        console.log(setupText());
+        if (process.stdin.isTTY && process.stdout.isTTY && !command.print) {
+          await runInteractiveSetup(command.mode);
+        } else {
+          console.log(setupText());
+        }
         return;
       }
       if (command.print) {
@@ -420,8 +425,15 @@ async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
 function setupText() {
   return `BuyAPI setup
 
+Interactive setup:
+  npx buyapi
+
 Install BuyAPI for an agent:
-${SETUP_CLIENTS.map((client) => `  buyapi setup ${client}`).join("\n")}
+  ${SETUP_CLIENTS.map((client) => `  buyapi setup ${client}`).join("\n")}
+
+Install the CLI globally if you do not want to type npx:
+  npm install -g buyapi
+  buyapi scan
 
 Default setup writes a hosted MCP URL:
   ${MCP_URL}
@@ -437,6 +449,61 @@ For stack-aware recommendations:
   2. Run: buyapi scan --sync --yes
 
 Read the docs: https://buyapi.ai/docs`;
+}
+
+async function runInteractiveSetup(defaultMode: "remote" | "local") {
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  try {
+    console.log("BuyAPI interactive setup");
+    console.log("");
+    console.log("Choose your coding agent:");
+    SETUP_CLIENTS.forEach((client, index) => {
+      console.log(`  ${index + 1}. ${client}`);
+    });
+
+    const clientAnswer = await rl.question("Agent [1]: ");
+    const client =
+      SETUP_CLIENTS[Number(clientAnswer.trim() || "1") - 1] ?? SETUP_CLIENTS[0];
+
+    const modeAnswer = await rl.question(
+      `Use hosted MCP URL? ${defaultMode === "remote" ? "[Y/n]" : "[y/N]"} `
+    );
+    const normalizedModeAnswer = modeAnswer.trim().toLowerCase();
+    const mode =
+      normalizedModeAnswer === ""
+        ? defaultMode
+        : normalizedModeAnswer.startsWith("y")
+          ? "remote"
+          : "local";
+
+    const result = installClientConfig(client, mode);
+    console.log(result.message);
+    console.log(
+      result.changed ? "Updated config." : "Config was already up to date."
+    );
+
+    const loginAnswer = await rl.question(
+      "Login now for higher limits and stack sync? [Y/n] "
+    );
+    if (!loginAnswer.trim().toLowerCase().startsWith("n")) {
+      const key = await runBrowserLogin();
+      console.log(`BuyAPI API key saved to ${configPath()}`);
+      console.log(`Logged in with key ${key.slice(0, 16)}...`);
+    } else {
+      console.log("Skipped login. You can run buyapi login later.");
+    }
+
+    console.log("");
+    console.log("Next steps:");
+    console.log("  buyapi scan");
+    console.log("  buyapi scan --sync --yes");
+  } finally {
+    rl.close();
+  }
 }
 
 function inferProjectName(root: string) {

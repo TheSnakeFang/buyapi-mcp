@@ -65,9 +65,18 @@ export type CliCommand =
 export function parseCliCommand(argv: string[]): CliCommand {
   const [rawCommand, ...rest] = argv;
   const command = rawCommand ?? "";
-  const { positional, options, json } = parseOptions(rest);
 
-  if (!command || command === "setup") {
+  if (command === "--help" || command === "-h" || command === "help") {
+    return { name: "help" };
+  }
+  if (command === "--version" || command === "-v" || command === "version") {
+    return { name: "version" };
+  }
+
+  if (!command || command.startsWith("--") || command === "setup") {
+    const { positional, options } = parseOptions(
+      command === "setup" ? rest : argv
+    );
     const client = normalizeClient(positional[0] || options.client);
     return {
       name: "setup",
@@ -76,13 +85,9 @@ export function parseCliCommand(argv: string[]): CliCommand {
       print: Boolean(options.print),
     };
   }
+
+  const { positional, options, json } = parseOptions(rest);
   if (command === "mcp") return { name: "mcp" };
-  if (command === "--help" || command === "-h" || command === "help") {
-    return { name: "help" };
-  }
-  if (command === "--version" || command === "-v" || command === "version") {
-    return { name: "version" };
-  }
 
   if (command === "login") {
     return { name: "login", apiKey: positional[0] || options.key };
@@ -228,6 +233,10 @@ Options:
   --json                  Print raw JSON
 
 Note: buyapi-mcp is deprecated on npm. Use npx buyapi for new installs.
+
+Install globally if you do not want to type npx:
+  npm install -g buyapi
+  buyapi scan
 
 By default, scan is local-only. Use buyapi login and buyapi scan --sync to
 save a private stack to your dashboard. Run buyapi setup cursor, buyapi setup

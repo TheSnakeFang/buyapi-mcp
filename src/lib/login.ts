@@ -36,12 +36,18 @@ export async function runBrowserLogin(): Promise<string> {
       }
 
       writeStoredApiKey(key);
-      response.writeHead(200, { "Content-Type": "text/html" });
+      response.writeHead(200, {
+        "Content-Type": "text/html",
+        Connection: "close",
+      });
       response.end(
         "<!doctype html><title>BuyAPI CLI connected</title><body><h1>BuyAPI CLI connected.</h1><p>You can close this tab and return to your terminal.</p></body>"
       );
       clearTimeout(timeout);
-      server.close();
+      setImmediate(() => {
+        server.closeAllConnections?.();
+        server.close();
+      });
       resolve(key);
     });
   });

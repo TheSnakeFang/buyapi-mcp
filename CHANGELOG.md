@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1] - 2026-04-28
+
+### Added
+
+- Bare `buyapi` / `npx buyapi` now runs an interactive setup flow in TTY terminals.
+- Setup guidance now includes global install instructions for users who do not want to type `npx`.
+
+### Fixed
+
+- Browser login callback now closes the local callback server more aggressively after receiving the API key.
+
 ## [0.6.0] - 2026-04-28
 
 ### Added

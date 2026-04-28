@@ -36,6 +36,8 @@ Run setup to install BuyAPI into your agent:
 npx buyapi
 ```
 
+Bare `npx buyapi` opens an interactive setup flow. It asks which coding agent you use, installs the hosted MCP config by default, and can log you in for higher limits and stack sync.
+
 Or target a client directly:
 
 ```bash
@@ -50,6 +52,13 @@ By default setup writes the hosted MCP URL. Use `--local` when a client needs a 
 
 ```bash
 npx buyapi setup codex --local
+```
+
+If you use the CLI often and do not want to type `npx`, install it globally:
+
+```bash
+npm install -g buyapi
+buyapi scan
 ```
 
 In an MCP client config, use the explicit `mcp` command. The client launches it as a local stdio server; you do not run it manually first:
