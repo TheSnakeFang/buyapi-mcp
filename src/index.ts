@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   compareVendors,
   estimateCosts,
+  getAccountStatus,
   getVendorDetails,
   recommendStack,
   searchVendors,
@@ -16,7 +17,15 @@ import {
   readStoredApiKey,
   writeStoredApiKey,
 } from "./lib/config.js";
+import { runBrowserLogin } from "./lib/login.js";
 import { formatStackScan, scanStack } from "./lib/scan.js";
+import {
+  installClientConfig,
+  MCP_URL,
+  SETUP_CLIENTS,
+  setupSnippet,
+  setupTargetPath,
+} from "./lib/setup.js";
 import {
   formatCostEstimates,
   formatDecisionMatrix,
@@ -233,7 +242,21 @@ async function main() {
 async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
   switch (command.name) {
     case "setup":
-      console.log(setupText());
+      if (!command.client) {
+        console.log(setupText());
+        return;
+      }
+      if (command.print) {
+        console.log(setupPrintText(command.client, command.mode));
+        return;
+      }
+      {
+        const result = installClientConfig(command.client, command.mode);
+        console.log(result.message);
+        console.log(
+          result.changed ? "Updated config." : "Config was already up to date."
+        );
+      }
       return;
     case "version":
       console.log(`${PACKAGE_NAME} ${PACKAGE_VERSION}`);
@@ -243,7 +266,9 @@ async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
       return;
     case "login":
       if (!command.apiKey) {
-        console.log(loginHelpText());
+        const key = await runBrowserLogin();
+        console.log(`BuyAPI API key saved to ${configPath()}`);
+        console.log(`Logged in with key ${key.slice(0, 16)}...`);
         return;
       }
       writeStoredApiKey(command.apiKey);
@@ -253,24 +278,69 @@ async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
       clearStoredApiKey();
       console.log("BuyAPI API key removed.");
       return;
+    case "whoami":
+      {
+        const key = process.env.BUYAPI_API_KEY || readStoredApiKey();
+        if (!key) {
+          const result = {
+            authenticated: false,
+            source: null,
+            message: "No BuyAPI API key configured.",
+          };
+          console.log(
+            command.json
+              ? JSON.stringify(result, null, 2)
+              : `${result.message} Run buyapi login.`
+          );
+          return;
+        }
+        const status = await getAccountStatus();
+        const result = {
+          authenticated: status.authenticated,
+          keyPrefix: status.keyPrefix,
+          source: process.env.BUYAPI_API_KEY ? "env" : "config",
+        };
+        console.log(
+          command.json
+            ? JSON.stringify(result, null, 2)
+            : `Logged in to BuyAPI with ${result.keyPrefix} (${result.source}).`
+        );
+      }
+      return;
     case "scan":
       {
-        const scan = scanStack(command.root ?? process.cwd());
-        if (!command.sync) {
+        const scan = scanStack(command.root ?? process.cwd(), {
+          includeAll: command.all,
+        });
+        if (!command.sync || command.dryRun) {
           console.log(
-            command.json ? JSON.stringify(scan, null, 2) : formatStackScan(scan)
+            command.json
+              ? JSON.stringify(scan, null, 2)
+              : formatStackScan(scan, {
+                  verbose: command.verbose,
+                  syncHint: command.dryRun && command.sync,
+                })
           );
           return;
         }
         if (!process.env.BUYAPI_API_KEY && !readStoredApiKey()) {
           throw new Error(
-            "scan --sync requires an API key. Run buyapi login <api-key> or set BUYAPI_API_KEY."
+            "scan --sync requires an API key. Run buyapi login or set BUYAPI_API_KEY."
           );
+        }
+        if (!command.yes && !command.json) {
+          const confirmed = await confirmSync(scan.tools.length);
+          if (!confirmed) {
+            console.log("Sync cancelled. No data was uploaded.");
+            return;
+          }
         }
         const result = await syncStackScan({
           projectName:
             command.projectName ??
+            command.stackSlug ??
             inferProjectName(command.root ?? process.cwd()),
+          stackSlug: command.stackSlug,
           summary: command.summary,
           scan,
         });
@@ -346,31 +416,59 @@ async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
 function setupText() {
   return `BuyAPI setup
 
-Recommended: add the hosted MCP endpoint to your agent.
-  URL: https://buyapi.ai/api/mcp
+Install BuyAPI for an agent:
+${SETUP_CLIENTS.map((client) => `  buyapi setup ${client}`).join("\n")}
+
+Default setup writes a hosted MCP URL:
+  ${MCP_URL}
 
 If your client needs a local stdio server, configure it to run:
-  npx -y buyapi mcp
+  buyapi setup <client> --local
+
+To inspect config instead of writing it:
+  buyapi setup <client> --print
 
 For stack-aware recommendations:
-  1. Create an API key at https://buyapi.ai/dashboard
-  2. Run: buyapi login <api-key>
-  3. Run: buyapi scan --sync
+  1. Run: buyapi login
+  2. Run: buyapi scan --sync --yes
 
 Read the docs: https://buyapi.ai/docs`;
 }
 
-function loginHelpText() {
-  return `BuyAPI login
-
-Create an API key at https://buyapi.ai/dashboard, then run:
-  buyapi login <api-key>
-
-You can also set BUYAPI_API_KEY in your environment for CI or one-off runs.`;
-}
-
 function inferProjectName(root: string) {
   return root.split(/[\\/]/).filter(Boolean).at(-1) || "Untitled stack";
+}
+
+function setupPrintText(
+  client: "claude-code" | "cursor" | "codex" | "windsurf" | "cline",
+  mode: "remote" | "local"
+) {
+  const vscode = client === "cline";
+  return `BuyAPI config for ${client}
+Path: ${setupTargetPath(client)}
+
+${client === "codex" ? codexPrintSnippet(mode) : setupSnippet(mode, vscode)}`;
+}
+
+function codexPrintSnippet(mode: "remote" | "local") {
+  return mode === "remote"
+    ? `[mcp_servers.buyapi]\nurl = "${MCP_URL}"`
+    : `[mcp_servers.buyapi]\ncommand = "npx"\nargs = ["-y", "buyapi", "mcp"]`;
+}
+
+async function confirmSync(toolCount: number): Promise<boolean> {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return false;
+  process.stdout.write(
+    `Sync ${toolCount} detected tools to your private BuyAPI dashboard? [y/N] `
+  );
+  const answer = await new Promise<string>((resolve) => {
+    process.stdin.resume();
+    process.stdin.once("data", (chunk) => {
+      process.stdin.pause();
+      resolve(String(chunk).trim().toLowerCase());
+    });
+  });
+  return answer === "y" || answer === "yes";
 }
 
 main().catch((error) => {

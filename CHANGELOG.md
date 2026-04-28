@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-04-28
+
+### Added
+
+- `buyapi setup <client>` writes MCP config for Claude Code, Cursor, Codex, Windsurf, and Cline.
+- `buyapi setup <client> --local` writes local stdio config using `npx -y buyapi mcp`.
+- Browser-based `buyapi login` with local callback and dashboard-generated API key.
+- `buyapi whoami` for checking the active local key.
+- Scanner flags: `--dry-run`, `--verbose`, `--all`, `--yes`, `--stack`, and `--stack-name`.
+
+### Changed
+
+- `buyapi scan --sync` now asks before uploading unless `--yes` is passed.
+- Scanner output now includes detection methods and primary/supporting status in verbose mode.
+
 ## [0.4.0] - 2026-04-27
 
 ### Added

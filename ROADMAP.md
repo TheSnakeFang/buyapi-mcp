@@ -2,17 +2,20 @@
 
 Current status and planned features for the BuyAPI MCP server.
 
-## Current (v0.2)
+## Current (v0.5)
 
 - [x] `resolve-vendor` - search vendors by query/category with relevance ranking and unknown-corpus fallback
 - [x] `get-vendor-details` - full vendor profiles with pricing, limits, comparisons, and source provenance
 - [x] `compare-vendors` - head-to-head structured comparison between specific vendors
 - [x] `estimate-cost` - deterministic cost estimates from explicit workload inputs
 - [x] `recommend-stack` - complete stack recommendations with cost projections, decision matrix, assumptions, unknowns, alternatives, and sources
-- [x] Local stdio transport (`npx buyapi`)
+- [x] Local stdio transport (`npx buyapi mcp`)
 - [x] API key forwarding in local client
-- [ ] Public API key creation/validation for higher rate limits
+- [x] Public API key creation/validation for higher rate limits
 - [x] Local-only `scan` command for package/config-based stack detection
+- [x] Browser `buyapi login`, `logout`, `whoami`, and `BUYAPI_API_KEY` support
+- [x] `buyapi setup <client>` config installer for Claude Code, Cursor, Codex, Windsurf, and Cline
+- [x] Account-backed `scan --sync --yes` for private stack sync
 
 ### Covered Categories
 - Database (Supabase, Convex, Neon, PlanetScale, Firebase)
@@ -25,14 +28,15 @@ Current status and planned features for the BuyAPI MCP server.
 
 ### Near-term
 - [x] Remote MCP endpoint (`https://buyapi.ai/api/mcp`) - no local install needed
-- [x] npm publish - `buyapi@0.3.1` installable from registry via `npx buyapi`
+- [x] npm publish - `buyapi@0.5.0` installable from registry via `npx buyapi`
 - [x] compatibility publish - `buyapi-mcp@0.3.1` is deprecated with a rename notice
 - [x] GitHub Release - `v0.2.0` release notes published
 - [x] Release workflow skips npm publish when a version already exists
 - [ ] More vendor profiles with full pricing data
 - [x] CI/CD for automated npm releases on tag
-- [ ] Keep public README aligned with app repo's `docs/CURRENT_STATE.md`
-- [ ] Publish/rename broader CLI package so `npx buyapi scan` works directly
+- [x] Keep public README aligned with app repo's `docs/CURRENT_STATE.md`
+- [x] Publish/rename broader CLI package so `npx buyapi scan` works directly
+- [ ] Expand scanner fixture coverage and detection registry provenance
 
 ### Future
 - [ ] New categories: analytics, monitoring, CMS, search, vector databases
@@ -42,7 +46,7 @@ Current status and planned features for the BuyAPI MCP server.
 
 ## Possible Future
 
-- [ ] `buyapi-cli` — CLI tool for researching vendors, managing profiles, and interacting with the BuyAPI platform from the terminal
+- [ ] Optional agent skill/rule installed by `buyapi setup`
 
 ## Requesting Vendors or Categories
 

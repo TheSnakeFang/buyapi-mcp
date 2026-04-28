@@ -107,6 +107,7 @@ export async function estimateCosts(args: {
 
 export async function syncStackScan(args: {
   projectName: string;
+  stackSlug?: string;
   summary?: string;
   scan: StackScanResult;
 }): Promise<{ slug: string; updated: boolean; url: string }> {
@@ -117,4 +118,11 @@ export async function syncStackScan(args: {
       body: JSON.stringify(args),
     }
   );
+}
+
+export async function getAccountStatus(): Promise<{
+  authenticated: boolean;
+  keyPrefix: string;
+}> {
+  return request<{ authenticated: boolean; keyPrefix: string }>("/api/me");
 }

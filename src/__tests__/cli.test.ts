@@ -3,7 +3,27 @@ import { helpText, parseCliCommand } from "../lib/cli.js";
 
 describe("parseCliCommand", () => {
   it("defaults to setup mode with no command", () => {
-    expect(parseCliCommand([])).toEqual({ name: "setup" });
+    expect(parseCliCommand([])).toEqual({
+      name: "setup",
+      client: undefined,
+      mode: "remote",
+      print: false,
+    });
+  });
+
+  it("parses setup clients", () => {
+    expect(parseCliCommand(["setup", "cursor"])).toEqual({
+      name: "setup",
+      client: "cursor",
+      mode: "remote",
+      print: false,
+    });
+    expect(parseCliCommand(["setup", "codex", "--local", "--print"])).toEqual({
+      name: "setup",
+      client: "codex",
+      mode: "local",
+      print: true,
+    });
   });
 
   it("parses explicit MCP and version commands", () => {
@@ -16,7 +36,12 @@ describe("parseCliCommand", () => {
       name: "scan",
       root: "/tmp/project",
       sync: false,
+      dryRun: false,
+      verbose: false,
+      all: false,
+      yes: false,
       projectName: undefined,
+      stackSlug: undefined,
       summary: undefined,
       json: false,
     });
@@ -37,8 +62,42 @@ describe("parseCliCommand", () => {
       name: "scan",
       root: "/tmp/project",
       sync: true,
+      dryRun: false,
+      verbose: false,
+      all: false,
+      yes: false,
       projectName: "My App",
+      stackSlug: undefined,
       summary: "Launch stack",
+      json: false,
+    });
+  });
+
+  it("parses expanded scan flags", () => {
+    expect(
+      parseCliCommand([
+        "scan",
+        "--sync",
+        "--dry-run",
+        "--verbose",
+        "--all",
+        "--yes",
+        "--stack",
+        "launch-stack",
+        "--stack-name",
+        "Launch Stack",
+      ])
+    ).toEqual({
+      name: "scan",
+      root: undefined,
+      sync: true,
+      dryRun: true,
+      verbose: true,
+      all: true,
+      yes: true,
+      projectName: "Launch Stack",
+      stackSlug: "launch-stack",
+      summary: undefined,
       json: false,
     });
   });
@@ -49,6 +108,10 @@ describe("parseCliCommand", () => {
       apiKey: "ba_live_test",
     });
     expect(parseCliCommand(["logout"])).toEqual({ name: "logout" });
+    expect(parseCliCommand(["whoami", "--json"])).toEqual({
+      name: "whoami",
+      json: true,
+    });
   });
 
   it("parses search with category and JSON output", () => {

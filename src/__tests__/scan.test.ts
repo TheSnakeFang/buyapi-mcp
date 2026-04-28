@@ -43,4 +43,36 @@ describe("scanStack", () => {
     expect(text).toContain("/email/resend");
     expect(text).toContain("does not upload");
   });
+
+  it("detects env examples and prints verbose evidence", () => {
+    const root = mkdtempSync(join(tmpdir(), "buyapi-scan-"));
+    writeFileSync(
+      join(root, ".env.example"),
+      "AUTH0_DOMAIN=\nPADDLE_API_KEY=\nPOSTMARK_SERVER_TOKEN=\n"
+    );
+
+    const result = scanStack(root);
+    expect(result.tools.map((tool) => tool.vendorSlug)).toEqual(
+      expect.arrayContaining([
+        "/auth/auth0",
+        "/payments/paddle",
+        "/email/postmark",
+      ])
+    );
+
+    const text = formatStackScan(result, { verbose: true });
+    expect(text).toContain("methods: env");
+  });
+
+  it("hides supporting detections unless includeAll is set", () => {
+    const root = mkdtempSync(join(tmpdir(), "buyapi-scan-"));
+    mkdirSync(join(root, "prisma"));
+
+    expect(scanStack(root).tools.map((tool) => tool.vendorSlug)).not.toContain(
+      "/database/neon"
+    );
+    expect(
+      scanStack(root, { includeAll: true }).tools.map((tool) => tool.vendorSlug)
+    ).toContain("/database/neon");
+  });
 });

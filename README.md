@@ -28,12 +28,28 @@ Add to your MCP client config:
 
 This is the easiest path: the client connects directly to BuyAPI over HTTP, with no local process and no npm install.
 
-### Local Install
+### CLI Setup
 
-Run the setup command for human-facing guidance:
+Run setup to install BuyAPI into your agent:
 
 ```bash
 npx buyapi
+```
+
+Or target a client directly:
+
+```bash
+npx buyapi setup cursor
+npx buyapi setup claude-code
+npx buyapi setup codex
+npx buyapi setup windsurf
+npx buyapi setup cline
+```
+
+By default setup writes the hosted MCP URL. Use `--local` when a client needs a local stdio process:
+
+```bash
+npx buyapi setup codex --local
 ```
 
 In an MCP client config, use the explicit `mcp` command. The client launches it as a local stdio server; you do not run it manually first:
@@ -59,12 +75,14 @@ The CLI has a stack scanner. Plain scan stays local and prints detected tools:
 npx buyapi scan
 ```
 
-To save a private stack to your BuyAPI dashboard, create an API key, login once, then sync:
+To save a private stack to your BuyAPI dashboard, login once, then sync:
 
 ```bash
-npx buyapi login ba_live_...
-npx buyapi scan --sync
+npx buyapi login
+npx buyapi scan --sync --yes
 ```
+
+`buyapi login` opens the browser, signs in through the dashboard, creates a CLI API key, and stores it locally. You can still pass an existing key with `buyapi login ba_live_...` or use `BUYAPI_API_KEY` in CI.
 
 `scan` is a human-facing CLI command, not an MCP tool. The MCP server should stay quiet on stdout because stdout carries the MCP protocol.
 
@@ -294,12 +312,14 @@ The local package reads either `BUYAPI_API_KEY` or the key stored by `buyapi log
 
 ```bash
 buyapi                             # Show setup guidance
-buyapi setup                       # Show setup guidance
+buyapi setup <client>              # Install MCP config for an agent
 buyapi mcp                         # Run the local MCP server over stdio
-buyapi login <api-key>             # Store an API key for CLI sync
+buyapi login                       # Browser login and local key storage
+buyapi login <api-key>             # Store an existing API key
 buyapi logout                      # Remove the stored API key
+buyapi whoami                      # Verify the active local key
 buyapi scan [dir]                  # Scan a local repo for known stack tools
-buyapi scan --sync                 # Save detected tools to your dashboard
+buyapi scan --sync --yes           # Save detected tools to your dashboard
 buyapi search <query>              # Search vendors
 buyapi details <vendorId>          # Fetch one vendor profile
 buyapi compare <ids...>            # Compare vendors
@@ -313,16 +333,23 @@ Common flags:
 ```bash
 --category <name>       Limit search/cost to a category
 --query <text>          Add workload or decision context
+--client <name>         Setup target: claude-code, cursor, codex, windsurf, cline
+--local                 Write local stdio MCP config during setup
+--print                 Print setup config instead of writing it
 --name <text>           Stack name for scan sync
+--stack-name <text>     Alias for --name
+--stack <slug>          Stable stack slug/name to update
 --summary <text>        Stack notes for scan sync
 --sync                  Save scan output to your dashboard
+--dry-run               Preview scan output without uploading
+--verbose               Include scanner evidence details
+--all                   Include lower-confidence supporting detections
+--yes                   Skip sync confirmation prompt
 --users <n>             Monthly active users
 --emails <n>            Email sends per month
 --orders <n>            Monthly orders
 --json                  Print raw structured JSON
 ```
-
-OAuth-based browser login is still planned. For now, use a dashboard API key with `buyapi login`.
 
 ## Covered Categories
 

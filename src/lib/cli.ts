@@ -1,18 +1,30 @@
 import type { WorkloadInput } from "./types.js";
 import { PACKAGE_VERSION } from "./version.js";
+import type { SetupClient, SetupMode } from "./setup.js";
 
 export type CliCommand =
   | { name: "mcp" }
-  | { name: "setup" }
+  | {
+      name: "setup";
+      client?: SetupClient;
+      mode: SetupMode;
+      print: boolean;
+    }
   | { name: "login"; apiKey?: string }
   | { name: "logout" }
+  | { name: "whoami"; json: boolean }
   | { name: "help" }
   | { name: "version" }
   | {
       name: "scan";
       root?: string;
       sync: boolean;
+      dryRun: boolean;
+      verbose: boolean;
+      all: boolean;
+      yes: boolean;
       projectName?: string;
+      stackSlug?: string;
       summary?: string;
       json: boolean;
     }
@@ -55,7 +67,15 @@ export function parseCliCommand(argv: string[]): CliCommand {
   const command = rawCommand ?? "";
   const { positional, options, json } = parseOptions(rest);
 
-  if (!command || command === "setup") return { name: "setup" };
+  if (!command || command === "setup") {
+    const client = normalizeClient(positional[0] || options.client);
+    return {
+      name: "setup",
+      client,
+      mode: options.local ? "local" : "remote",
+      print: Boolean(options.print),
+    };
+  }
   if (command === "mcp") return { name: "mcp" };
   if (command === "--help" || command === "-h" || command === "help") {
     return { name: "help" };
@@ -72,12 +92,23 @@ export function parseCliCommand(argv: string[]): CliCommand {
     return { name: "logout" };
   }
 
+  if (command === "whoami") {
+    return { name: "whoami", json };
+  }
+
   if (command === "scan") {
+    const root = positional.find((item) => !item.startsWith("-"));
+    const projectName = options["stack-name"] ?? options.name;
     return {
       name: "scan",
-      root: positional[0],
+      root,
       sync: Boolean(options.sync),
-      projectName: options.name,
+      dryRun: Boolean(options["dry-run"]),
+      verbose: Boolean(options.verbose),
+      all: Boolean(options.all),
+      yes: Boolean(options.yes),
+      projectName,
+      stackSlug: options.stack,
       summary: options.summary,
       json,
     };
@@ -158,12 +189,14 @@ Version: ${PACKAGE_VERSION}
 
 Commands:
   buyapi                             Show setup options for humans
-  buyapi setup                       Show setup options for humans
+  buyapi setup <client>              Install MCP config for a supported client
   buyapi mcp                         Run the local MCP server over stdio
-  buyapi login <api-key>             Store an API key for CLI sync
+  buyapi login                       Sign in through the browser and store a key
+  buyapi login <api-key>             Store an existing API key for CLI sync
   buyapi logout                      Remove the stored API key
+  buyapi whoami                      Show the active local BuyAPI key state
   buyapi scan [dir]                  Scan a local repo for known stack tools
-  buyapi scan --sync                 Scan and save the stack to BuyAPI
+  buyapi scan --sync --yes           Scan and save the stack to BuyAPI
   buyapi search <query>              Search tools in the BuyAPI corpus
   buyapi details <vendor-id>          Show a sourced vendor profile
   buyapi recommend <project>          Recommend a stack for a project
@@ -173,9 +206,18 @@ Commands:
 Options:
   --category <name>       Limit search/cost to a category
   --query <text>          Decision context or details focus
+  --client <name>         setup target: claude-code, cursor, codex, windsurf, cline
+  --local                 setup local stdio config instead of hosted MCP URL
+  --print                 print setup config instead of writing it
   --name <text>           Stack name for scan sync
+  --stack-name <text>     Alias for --name
+  --stack <slug>          Stable stack slug/name to update during sync
   --summary <text>        Stack notes for scan sync
   --sync                  Save scan output to your BuyAPI dashboard
+  --dry-run               Preview scan output without uploading
+  --verbose               Include scanner evidence details
+  --all                   Include lower-confidence supporting detections
+  --yes                   Skip sync confirmation prompt
   --constraints <text>    Budget, scale, compliance, or existing tools
   --users <n>             User count
   --mau <n>               Monthly active users
@@ -188,8 +230,9 @@ Options:
 Note: buyapi-mcp is deprecated on npm. Use npx buyapi for new installs.
 
 By default, scan is local-only. Use buyapi login and buyapi scan --sync to
-save a private stack to your dashboard. MCP client configs should use
-buyapi mcp when they need a local stdio server.`;
+save a private stack to your dashboard. Run buyapi setup cursor, buyapi setup
+claude-code, buyapi setup codex, buyapi setup windsurf, or buyapi setup cline
+to write client config.`;
 }
 
 function parseOptions(argv: string[]) {
@@ -210,6 +253,19 @@ function parseOptions(argv: string[]) {
         options[key] = "true";
         continue;
       }
+      if (
+        [
+          "local",
+          "print",
+          "dry-run",
+          "verbose",
+          "all",
+          "yes",
+        ].includes(key)
+      ) {
+        options[key] = "true";
+        continue;
+      }
       if (!next || next.startsWith("--")) {
         throw new Error(`Missing value for --${key}.`);
       }
@@ -221,6 +277,25 @@ function parseOptions(argv: string[]) {
   }
 
   return { positional, options, json };
+}
+
+function normalizeClient(value: string | undefined): SetupClient | undefined {
+  if (!value) return undefined;
+  const normalized = value.toLowerCase();
+  if (
+    normalized === "claude" ||
+    normalized === "claude-code" ||
+    normalized === "claudecode"
+  ) {
+    return "claude-code";
+  }
+  if (normalized === "cursor") return "cursor";
+  if (normalized === "codex" || normalized === "codex-cli") return "codex";
+  if (normalized === "windsurf") return "windsurf";
+  if (normalized === "cline" || normalized === "vscode") return "cline";
+  throw new Error(
+    `Unknown setup client: ${value}. Use claude-code, cursor, codex, windsurf, or cline.`
+  );
 }
 
 function parseWorkload(options: Record<string, string>): WorkloadInput {
