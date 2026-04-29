@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.4] - 2026-04-28
+
+### Fixed
+
+- Match official MCP Registry server naming to the exact GitHub owner casing required for publish permissions.
+
 ## [0.6.3] - 2026-04-28
 
 ### Added
