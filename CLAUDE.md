@@ -2,11 +2,11 @@
 
 Public, open-source MCP server for BuyAPI — the tool AI agents call when they need to pick a vendor.
 
-**Published:** `buyapi@0.3.1` on npm; `buyapi-mcp` is deprecated and points users to `buyapi`
+**Published:** `buyapi@0.6.5` on npm; `buyapi-mcp` is deprecated and points users to `buyapi`
 **Live endpoint:** `https://buyapi.ai/api/mcp`
 
 ## What This Repo Is
-- TypeScript MCP server with 5 tools: `vendors.resolve`, `vendors.details`, `vendors.compare`, `vendors.estimateCost`, `stacks.recommend`
+- TypeScript MCP server with 7 tools: `vendors.resolve`, `vendors.details`, `vendors.evidence`, `vendors.compare`, `vendors.estimateCost`, `stacks.findSimilar`, `stacks.recommend`
 - Calls the BuyAPI backend API (`https://buyapi.ai`) — contains NO vendor data itself
 - Thin client (~300 lines). All business logic and vendor data lives in the private `buyapi-app` repo
 - MIT licensed for trust and distribution
