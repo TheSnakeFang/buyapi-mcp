@@ -1,11 +1,10 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.thesnakefang/buyapi-mcp",
   "version": "0.6.3",
   "title": "BuyAPI",
-  "description": "AI-native vendor intelligence for coding agents choosing databases, auth, hosting, payments, email, and other developer tools. Helps AI coding agents make current, sourced infrastructure decisions instead of relying on stale training-data defaults.",
+  "description": "Vendor intelligence for AI coding agents choosing developer tools and stacks.",
   "websiteUrl": "https://buyapi.ai",
-  "license": "MIT",
   "packages": [
     {
       "registryType": "npm",
@@ -14,28 +13,29 @@
       "transport": {
         "type": "stdio"
       },
-      "command": "npx",
-      "packageArguments": ["-y", "buyapi", "mcp"]
-    },
+      "runtimeHint": "npx",
+      "runtimeArguments": [
+        {
+          "type": "positional",
+          "value": "-y"
+        }
+      ],
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ]
+    }
+  ],
+  "remotes": [
     {
-      "registryType": "remote",
-      "transport": {
-        "type": "http",
-        "url": "https://buyapi.ai/api/mcp"
-      }
+      "type": "streamable-http",
+      "url": "https://buyapi.ai/api/mcp"
     }
   ],
   "repository": {
     "url": "https://github.com/TheSnakeFang/buyapi-mcp",
     "source": "github"
-  },
-  "tools": [
-    { "name": "resolve-vendor" },
-    { "name": "get-vendor-details" },
-    { "name": "get-vendor-evidence" },
-    { "name": "find-similar-stacks" },
-    { "name": "compare-vendors" },
-    { "name": "estimate-cost" },
-    { "name": "recommend-stack" }
-  ]
+  }
 }
