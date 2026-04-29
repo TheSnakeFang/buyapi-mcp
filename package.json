@@ -1,7 +1,7 @@
 {
   "name": "buyapi",
-    "mcpName": "io.github.thesnakefang/buyapi-mcp",
-  "version": "0.6.2",
+  "mcpName": "io.github.thesnakefang/buyapi-mcp",
+  "version": "0.6.3",
   "description": "BuyAPI CLI and MCP server — unbiased vendor intelligence for AI coding agents",
   "type": "module",
   "main": "dist/index.js",

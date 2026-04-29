@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.3] - 2026-04-28
+
+### Added
+
+- Official MCP Registry metadata via `server.json`.
+- `mcpName` package metadata required by the official MCP Registry.
+
 ## [0.6.2] - 2026-04-28
 
 ### Added

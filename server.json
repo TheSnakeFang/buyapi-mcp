@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
   "name": "io.github.thesnakefang/buyapi-mcp",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "title": "BuyAPI",
   "description": "AI-native vendor intelligence for coding agents choosing databases, auth, hosting, payments, email, and other developer tools. Helps AI coding agents make current, sourced infrastructure decisions instead of relying on stale training-data defaults.",
   "websiteUrl": "https://buyapi.ai",
@@ -10,7 +10,7 @@
     {
       "registryType": "npm",
       "identifier": "buyapi",
-      "version": "0.6.2",
+      "version": "0.6.3",
       "transport": {
         "type": "stdio"
       },

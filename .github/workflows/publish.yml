@@ -39,9 +39,9 @@ jobs:
       - name: Check whether version is already published
         id: npm
         run: |
-          if npm view "buyapi-mcp@${{ steps.package.outputs.version }}" version >/dev/null 2>&1; then
+          if npm view "buyapi@${{ steps.package.outputs.version }}" version >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "buyapi-mcp@${{ steps.package.outputs.version }} is already published; skipping npm publish."
+            echo "buyapi@${{ steps.package.outputs.version }} is already published; skipping npm publish."
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
@@ -50,11 +50,9 @@ jobs:
         if: steps.npm.outputs.exists != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-              - name: Publish to MCP Registry
-      permissions:
-        id-token: write
-        contents: read
-      run: |
-        curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
-        ./mcp-publisher login github-oidc
-        ./mcp-publisher publish
+
+      - name: Publish to MCP Registry
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish

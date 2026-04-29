@@ -4,6 +4,7 @@
 
 [![Website](https://img.shields.io/badge/Website-buyapi.ai-blue)](https://buyapi.ai)
 [![NPM Version](https://img.shields.io/npm/v/buyapi?color=red)](https://www.npmjs.com/package/buyapi)
+[![smithery badge](https://smithery.ai/badge/kevinfang1098/buyapi)](https://smithery.ai/servers/kevinfang1098/buyapi)
 [![MIT licensed](https://img.shields.io/npm/l/buyapi)](./LICENSE)
 
 BuyAPI helps AI agents and developers make informed infrastructure decisions. When your agent needs to pick a database, auth provider, hosting platform, payment processor, or email provider, BuyAPI provides current, structured, neutral vendor comparisons - not training data defaults.
