@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.5] - 2026-04-28
+
+### Changed
+
+- Rename MCP tools into a dot-notation tree for registry navigability.
+- Add MCP tool annotations declaring BuyAPI tools read-only, non-destructive, idempotent, and open-world.
+
 ## [0.6.4] - 2026-04-28
 
 ### Fixed
@@ -87,7 +94,7 @@ All notable changes to this project will be documented in this file.
 - Explicit `buyapi mcp` and `buyapi --version` commands.
 - Local-only `scan` command for detecting known stack tools from project files.
 - Read-only CLI commands: `search`, `details`, `recommend`, `compare`, and `cost`.
-- Hosted MCP endpoint now exposes `get-vendor-evidence` and `find-similar-stacks`.
+- Hosted MCP endpoint now exposes `vendors.evidence` and `stacks.findSimilar`.
 - README clarification for hosted MCP vs local stdio MCP vs human-facing CLI commands.
 - README sections for decision prompts, vendor-ID tips, CLI reference, troubleshooting, and data disclaimer.
 
@@ -99,10 +106,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- `compare-vendors` tool -- structured head-to-head vendor comparisons.
-- `estimate-cost` tool -- deterministic cost estimates from explicit workload inputs.
-- Structured `recommend-stack` output with decision matrix, assumptions, unknowns, alternatives, and sources.
-- Optional category support and unknown-corpus fallback for `resolve-vendor`.
+- `vendors.compare` tool -- structured head-to-head vendor comparisons.
+- `vendors.estimateCost` tool -- deterministic cost estimates from explicit workload inputs.
+- Structured `stacks.recommend` output with decision matrix, assumptions, unknowns, alternatives, and sources.
+- Optional category support and unknown-corpus fallback for `vendors.resolve`.
 - Source provenance rendering for vendor details.
 
 ## [0.1.0] - 2026-04-15
@@ -111,9 +118,9 @@ Initial public release of the BuyAPI MCP server.
 
 ### Added
 
-- `resolve-vendor` tool -- search vendors by category with relevance ranking
-- `get-vendor-details` tool -- full vendor profiles with pricing, free tier limits, and comparisons
-- `recommend-stack` tool -- complete stack recommendations with cost projections at 100/1K/10K users
+- `vendors.resolve` tool -- search vendors by category with relevance ranking
+- `vendors.details` tool -- full vendor profiles with pricing, free tier limits, and comparisons
+- `stacks.recommend` tool -- complete stack recommendations with cost projections at 100/1K/10K users
 - Local stdio transport via `npx buyapi-mcp`
 - Remote MCP endpoint at `https://buyapi.ai/api/mcp`
 - Optional API key forwarding hook for future keyed backend access

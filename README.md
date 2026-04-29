@@ -163,7 +163,7 @@ Common launch-corpus IDs:
 
 ## Available Tools
 
-### `resolve-vendor`
+### `vendors.resolve`
 
 Search for vendors by query. Category is optional. Returns matching vendors with pricing summaries, positioning, confidence, and explicit unknown-corpus fallbacks.
 
@@ -174,7 +174,7 @@ Category: "database"
 -> Returns: Convex, Supabase, Neon, PlanetScale, Firebase with comparison metadata
 ```
 
-### `get-vendor-details`
+### `vendors.details`
 
 Get detailed vendor profile: concrete pricing numbers, free tier limits, scaling characteristics, known gotchas, source provenance, and head-to-head comparisons.
 
@@ -185,7 +185,7 @@ Query: "free tier limits for a side project"
 -> Returns: Full pricing tiers, 500MB DB limit, 50K auth users, scaling triggers, and sources
 ```
 
-### `get-vendor-evidence`
+### `vendors.evidence`
 
 Fetch recent reviewed evidence rows for a vendor, category, stack, or comparison.
 
@@ -196,7 +196,7 @@ Subject ID: /database/supabase
 -> Returns: Evidence summaries with source URLs, stance, confidence, and observed dates
 ```
 
-### `find-similar-stacks`
+### `stacks.findSimilar`
 
 Find public stack profiles related to a vendor, or recent curated stack examples.
 
@@ -206,7 +206,7 @@ Vendor ID: /database/convex
 -> Returns: Similar stack profiles with project summary, audience, stage, tools, and confidence
 ```
 
-### `compare-vendors`
+### `vendors.compare`
 
 Compare two or more specific vendors for a workload or decision.
 
@@ -217,7 +217,7 @@ Query: "realtime TypeScript SaaS with preview environments"
 -> Returns: Structured decision matrix with fit, capability-by-capability yes/no/unknown coverage, tradeoffs, estimated cost, confidence, and sources
 ```
 
-### `estimate-cost`
+### `vendors.estimateCost`
 
 Run deterministic cost estimates from explicit workload inputs instead of leaving math to the model.
 
@@ -228,7 +228,7 @@ Workload: { "emailSendsPerMonth": 50000 }
 -> Returns: Amazon SES estimated at $5/month, basis, assumptions, unknowns, and sources
 ```
 
-### `recommend-stack`
+### `stacks.recommend`
 
 Describe your project and get a complete stack recommendation with cost projections, a decision matrix, assumptions, unknowns, alternatives, and sources.
 

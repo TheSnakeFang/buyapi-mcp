@@ -6,7 +6,7 @@ Public, open-source MCP server for BuyAPI — the tool AI agents call when they 
 **Live endpoint:** `https://buyapi.ai/api/mcp`
 
 ## What This Repo Is
-- TypeScript MCP server with 5 tools: `resolve-vendor`, `get-vendor-details`, `compare-vendors`, `estimate-cost`, `recommend-stack`
+- TypeScript MCP server with 5 tools: `vendors.resolve`, `vendors.details`, `vendors.compare`, `vendors.estimateCost`, `stacks.recommend`
 - Calls the BuyAPI backend API (`https://buyapi.ai`) — contains NO vendor data itself
 - Thin client (~300 lines). All business logic and vendor data lives in the private `buyapi-app` repo
 - MIT licensed for trust and distribution

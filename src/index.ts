@@ -77,11 +77,18 @@ function structured(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+const readOnlyTool = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: true,
+};
+
 server.tool(
-  "resolve-vendor",
+  "vendors.resolve",
   `Finds BuyAPI vendor IDs for a user question. Category is optional; provide it when known.
 
-Use this for vendor discovery before get-vendor-details, or when the user asks which provider in a category fits their constraints.
+Use this for vendor discovery before vendors.details, or when the user asks which provider in a category fits their constraints.
 If the category is outside BuyAPI's corpus, the tool returns an explicit "not in corpus yet" result instead of inventing vendors.`,
   {
     query: z
@@ -92,6 +99,7 @@ If the category is outside BuyAPI's corpus, the tool returns an explicit "not in
       .optional()
       .describe("Optional category: database, auth, hosting, payments, email"),
   },
+  readOnlyTool,
   async ({ query, category }) => {
     try {
       const data = await searchVendors(query, category);
@@ -113,10 +121,10 @@ If the category is outside BuyAPI's corpus, the tool returns an explicit "not in
 );
 
 server.tool(
-  "get-vendor-details",
+  "vendors.details",
   `Retrieves detailed vendor information including pricing, features, limits, gotchas, comparisons, and source provenance.
 
-Call resolve-vendor first unless the user already provided a BuyAPI vendor ID like /database/supabase.`,
+Call vendors.resolve first unless the user already provided a BuyAPI vendor ID like /database/supabase.`,
   {
     vendorId: z.string().describe("BuyAPI vendor ID, e.g. /database/supabase"),
     query: z
@@ -124,6 +132,7 @@ Call resolve-vendor first unless the user already provided a BuyAPI vendor ID li
       .optional()
       .describe("Specific question to focus the response on"),
   },
+  readOnlyTool,
   async ({ vendorId, query }) => {
     try {
       const vendor = await getVendorDetails(vendorId, query);
@@ -138,7 +147,7 @@ Call resolve-vendor first unless the user already provided a BuyAPI vendor ID li
 );
 
 server.tool(
-  "compare-vendors",
+  "vendors.compare",
   `Compares two or more BuyAPI vendors for a specific workload or decision.
 
 Use this for head-to-head questions like "Convex vs Supabase vs Neon for a realtime SaaS" or "Stripe vs Paddle for a marketplace".`,
@@ -150,6 +159,7 @@ Use this for head-to-head questions like "Convex vs Supabase vs Neon for a realt
     query: z.string().describe("The user's decision context"),
     workload: workloadSchema.optional(),
   },
+  readOnlyTool,
   async ({ vendorIds, query, workload }) => {
     try {
       const result = await compareVendors(vendorIds, query, workload);
@@ -166,7 +176,7 @@ Use this for head-to-head questions like "Convex vs Supabase vs Neon for a realt
 );
 
 server.tool(
-  "estimate-cost",
+  "vendors.estimateCost",
   `Produces deterministic monthly cost estimates from BuyAPI pricing data and explicit workload inputs.
 
 Use this when the user asks for cost math. Missing workload fields are returned as assumptions or unknowns instead of being hallucinated.`,
@@ -181,6 +191,7 @@ Use this when the user asks for cost math. Missing workload fields are returned 
       .describe("Optional category to estimate across the current corpus"),
     workload: workloadSchema,
   },
+  readOnlyTool,
   async ({ vendorIds, category, workload }) => {
     try {
       const result = await estimateCosts({ vendorIds, category, workload });
@@ -197,10 +208,10 @@ Use this when the user asks for cost math. Missing workload fields are returned 
 );
 
 server.tool(
-  "recommend-stack",
+  "stacks.recommend",
   `Recommends a complete stack from BuyAPI's corpus with a structured decision matrix, cost estimate, assumptions, unknowns, alternatives, and sources.
 
-Use this when the user is starting a project or asks for a complete stack choice. Do not call resolve-vendor first; this tool handles retrieval and ranking.`,
+Use this when the user is starting a project or asks for a complete stack choice. Do not call vendors.resolve first; this tool handles retrieval and ranking.`,
   {
     projectDescription: z.string().describe("What the user is building"),
     constraints: z
@@ -209,6 +220,7 @@ Use this when the user is starting a project or asks for a complete stack choice
       .describe("Budget, scale, existing tools, team size, compliance needs"),
     workload: workloadSchema.optional(),
   },
+  readOnlyTool,
   async ({ projectDescription, constraints, workload }) => {
     try {
       const recommendation = await recommendStack(

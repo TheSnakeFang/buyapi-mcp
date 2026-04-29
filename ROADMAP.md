@@ -4,11 +4,11 @@ Current status and planned features for the BuyAPI MCP server.
 
 ## Current (v0.6)
 
-- [x] `resolve-vendor` - search vendors by query/category with relevance ranking and unknown-corpus fallback
-- [x] `get-vendor-details` - full vendor profiles with pricing, limits, comparisons, and source provenance
-- [x] `compare-vendors` - head-to-head structured comparison between specific vendors
-- [x] `estimate-cost` - deterministic cost estimates from explicit workload inputs
-- [x] `recommend-stack` - complete stack recommendations with cost projections, decision matrix, assumptions, unknowns, alternatives, and sources
+- [x] `vendors.resolve` - search vendors by query/category with relevance ranking and unknown-corpus fallback
+- [x] `vendors.details` - full vendor profiles with pricing, limits, comparisons, and source provenance
+- [x] `vendors.compare` - head-to-head structured comparison between specific vendors
+- [x] `vendors.estimateCost` - deterministic cost estimates from explicit workload inputs
+- [x] `stacks.recommend` - complete stack recommendations with cost projections, decision matrix, assumptions, unknowns, alternatives, and sources
 - [x] Local stdio transport (`npx buyapi mcp`)
 - [x] API key forwarding in local client
 - [x] Public API key creation/validation for higher rate limits
