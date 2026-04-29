@@ -55,4 +55,13 @@ jobs:
         run: |
           curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
           ./mcp-publisher login github-oidc
-          ./mcp-publisher publish
+          if ! OUTPUT=$(./mcp-publisher publish 2>&1); then
+            echo "$OUTPUT"
+            if echo "$OUTPUT" | grep -q "cannot publish duplicate version"; then
+              echo "MCP Registry version is already published; skipping."
+            else
+              exit 1
+            fi
+          else
+            echo "$OUTPUT"
+          fi
