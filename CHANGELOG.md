@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2026-05-01
+
+### Added
+
+- Scanner now reports stack context separately from product tools, including languages, frameworks, runtimes, package managers, testing, and dev workflow.
+- `stacks.recommend` now accepts derived `stackFacts` so agents can pass language/framework/runtime context without treating those as vendor tools.
+- Stack profile output now includes saved stack context when available.
+
+### Changed
+
+- Framework and development packages such as Next.js, React, TypeScript, Vitest, and pnpm are treated as stack context instead of public tool-directory candidates by default.
+
 ## [0.6.5] - 2026-04-28
 
 ### Changed
