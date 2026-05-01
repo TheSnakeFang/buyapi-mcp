@@ -90,11 +90,17 @@ Use the local path when an agent client does not support remote MCP URLs, or whe
 
 ### Stack Scan And Sync
 
-The CLI has a stack scanner. Plain scan stays local and prints detected tools:
+The CLI has a stack scanner. Plain scan prints a local preview first, then asks
+whether to save the private stack when the terminal is interactive:
 
 ```bash
 npx buyapi scan
 ```
+
+Run it from the app or package folder that contains project signals such as
+`package.json`, a lockfile, framework config, `convex/`, `prisma/`, or source
+imports. If no signals are found, the CLI prints wrong-folder guidance instead
+of silently returning an empty stack.
 
 Use `--verbose` to see evidence and unknown package candidates found in
 `package.json`:
@@ -103,7 +109,8 @@ Use `--verbose` to see evidence and unknown package candidates found in
 npx buyapi scan --verbose
 ```
 
-To save a private stack to your BuyAPI dashboard, login once, then sync:
+For a guaranteed no-upload preview, use `--dry-run`. To save a private stack
+without prompts in automation, login once, then sync:
 
 ```bash
 npx buyapi login
@@ -366,8 +373,8 @@ buyapi login                       # Browser login and local key storage
 buyapi login <api-key>             # Store an existing API key
 buyapi logout                      # Remove the stored API key
 buyapi whoami                      # Verify the active local key
-buyapi scan [dir]                  # Scan a local repo for known stack tools
-buyapi scan --sync --yes           # Save detected tools to your dashboard
+buyapi scan [dir]                  # Scan locally, then optionally save stack
+buyapi scan --sync --yes           # Save detected tools without prompts
 buyapi search <query>              # Search vendors
 buyapi details <vendorId>          # Fetch one vendor profile
 buyapi compare <ids...>            # Compare vendors
@@ -414,7 +421,7 @@ Common flags:
 
 This MCP server is a thin TypeScript client that calls the BuyAPI backend API. It contains no vendor data; lightweight comparison and cost formatting mirrors the hosted endpoint while vendor intelligence is served from [buyapi.ai](https://buyapi.ai).
 
-The source is fully open so you can verify there's no prompt injection or hidden behavior. `scan` is local-only by default; `scan --sync` sends detected tool metadata and unknown package candidates for review, not source code or environment values.
+The source is fully open so you can verify there's no prompt injection or hidden behavior. `scan` previews locally first and only uploads after explicit confirmation or `--sync`; `--dry-run` never uploads. Sync sends detected tool metadata and unknown package candidates for review, not source code or environment values.
 
 ## Data Transparency
 

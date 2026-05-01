@@ -192,7 +192,8 @@ describe("parseCliCommand", () => {
     expect(text).toContain("buyapi compare <ids...>");
     expect(text).toContain("buyapi setup-skill <client>");
     expect(text).toContain("buyapi-mcp is deprecated");
-    expect(text).toContain("By default, scan is local-only");
+    expect(text).toContain("scan previews locally first");
+    expect(text).toContain("--dry-run");
     expect(text).toContain("npm install -g buyapi");
   });
 });

@@ -214,8 +214,8 @@ Commands:
   buyapi login <api-key>             Store an existing API key for CLI sync
   buyapi logout                      Remove the stored API key
   buyapi whoami                      Show the active local BuyAPI key state
-  buyapi scan [dir]                  Scan a local repo for known stack tools
-  buyapi scan --sync --yes           Scan and save the stack to BuyAPI
+  buyapi scan [dir]                  Scan locally, then optionally save stack
+  buyapi scan --sync --yes           Scan and save without prompts
   buyapi search <query>              Search tools in the BuyAPI corpus
   buyapi details <vendor-id>          Show a sourced vendor profile
   buyapi recommend <project>          Recommend a stack for a project
@@ -253,10 +253,11 @@ Install globally if you do not want to type npx:
   npm install -g buyapi
   buyapi scan
 
-By default, scan is local-only. Use buyapi login and buyapi scan --sync to
-save a private stack to your dashboard. Run buyapi setup claude-code --skill
-or buyapi setup-skill codex to add the /stack planning workflow where skills
-are supported.`;
+By default, scan previews locally first. In an interactive terminal it asks
+before saving. Use --dry-run for a guaranteed no-upload scan, or use
+buyapi login and buyapi scan --sync --yes for automation. Run
+buyapi setup claude-code --skill or buyapi setup-skill codex to add the
+/stack planning workflow where skills are supported.`;
 }
 
 function parseOptions(argv: string[]) {

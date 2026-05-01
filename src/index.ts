@@ -21,7 +21,7 @@ import {
   writeStoredApiKey,
 } from "./lib/config.js";
 import { runBrowserLogin } from "./lib/login.js";
-import { formatStackScan, scanStack } from "./lib/scan.js";
+import { formatStackScan, scanStack, type StackScanResult } from "./lib/scan.js";
 import {
   installClientConfig,
   MCP_URL,
@@ -447,7 +447,7 @@ async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
         const scan = scanStack(command.root ?? process.cwd(), {
           includeAll: command.all,
         });
-        if (!command.sync || command.dryRun) {
+        if (command.dryRun || (command.json && !command.sync)) {
           console.log(
             command.json
               ? JSON.stringify(scan, null, 2)
@@ -458,36 +458,50 @@ async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
           );
           return;
         }
-        if (!process.env.BUYAPI_API_KEY && !readStoredApiKey()) {
-          throw new Error(
-            "scan --sync requires an API key. Run buyapi login or set BUYAPI_API_KEY."
-          );
+
+        if (!command.json) {
+          console.log(formatStackScan(scan, { verbose: command.verbose }));
         }
-        if (!command.yes && !command.json) {
-          const confirmed = await confirmSync(scan.tools.length);
+
+        if (!hasSyncableScanData(scan)) {
+          if (command.json) {
+            throw new Error(
+              "No stack data to sync. Run from the project folder that contains your app manifest or config."
+            );
+          }
+          if (command.sync && !command.json) {
+            console.log(
+              "Nothing to sync yet. Run from the project folder that contains your app manifest or config."
+            );
+          }
+          return;
+        }
+
+        if (!command.sync) {
+          if (!canPrompt()) return;
+          const hasKey = Boolean(process.env.BUYAPI_API_KEY || readStoredApiKey());
+          const confirmed = await promptYesNo(
+            hasKey
+              ? "Save/update this private stack in your BuyAPI dashboard? [y/N] "
+              : "Save this private stack to BuyAPI? This opens browser login first. [y/N] "
+          );
+          if (!confirmed) {
+            console.log("No data was uploaded. Run buyapi scan --sync when you want to save this stack.");
+            return;
+          }
+        } else if (!command.yes) {
+          const confirmed = await confirmSync(
+            scan.tools.length,
+            scan.unknownDependencies.length
+          );
           if (!confirmed) {
             console.log("Sync cancelled. No data was uploaded.");
             return;
           }
         }
-        const result = await syncStackScan({
-          projectName:
-            command.projectName ??
-            command.stackSlug ??
-            inferProjectName(command.root ?? process.cwd()),
-          stackSlug: command.stackSlug,
-          summary: command.summary,
-          scan,
-        });
-        console.log(
-          command.json
-            ? JSON.stringify(result, null, 2)
-            : `Stack ${result.updated ? "updated" : "saved"}: ${result.url}${
-                result.candidateCount
-                  ? `\nQueued ${result.candidateCount} unknown package candidates for review.`
-                  : ""
-              }`
-        );
+
+        await ensureApiKeyForSync(command.sync);
+        await syncAndPrintStackScan(command, scan);
       }
       return;
     case "search": {
@@ -679,6 +693,62 @@ function printSetupModeSummary(mode: "remote" | "local") {
   console.log("You do not need to run that server manually.");
 }
 
+function hasSyncableScanData(scan: StackScanResult) {
+  return scan.tools.length > 0 || scan.unknownDependencies.length > 0;
+}
+
+function canPrompt() {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY);
+}
+
+async function ensureApiKeyForSync(explicitSync: boolean) {
+  if (process.env.BUYAPI_API_KEY || readStoredApiKey()) return;
+
+  if (!canPrompt()) {
+    throw new Error(
+      "scan --sync requires an API key. Run buyapi login or set BUYAPI_API_KEY."
+    );
+  }
+
+  if (explicitSync) {
+    const confirmed = await promptYesNo(
+      "scan --sync needs a BuyAPI login. Open browser login now? [Y/n] ",
+      true
+    );
+    if (!confirmed) {
+      throw new Error("Sync cancelled. Run buyapi login when you are ready.");
+    }
+  }
+
+  const key = await runBrowserLogin();
+  console.log(`BuyAPI API key saved to ${configPath()}`);
+  console.log(`Logged in with key ${key.slice(0, 16)}...`);
+}
+
+async function syncAndPrintStackScan(
+  command: Extract<ReturnType<typeof parseCliCommand>, { name: "scan" }>,
+  scan: StackScanResult
+) {
+  const result = await syncStackScan({
+    projectName:
+      command.projectName ??
+      command.stackSlug ??
+      inferProjectName(command.root ?? process.cwd()),
+    stackSlug: command.stackSlug,
+    summary: command.summary,
+    scan,
+  });
+  console.log(
+    command.json
+      ? JSON.stringify(result, null, 2)
+      : `Stack ${result.updated ? "updated" : "saved"}: ${result.url}${
+          result.candidateCount
+            ? `\nQueued ${result.candidateCount} unknown package candidates for review.`
+            : ""
+        }`
+  );
+}
+
 function inferProjectName(root: string) {
   return root.split(/[\\/]/).filter(Boolean).at(-1) || "Untitled stack";
 }
@@ -711,11 +781,21 @@ function codexPrintSnippet(mode: "remote" | "local") {
     : `[mcp_servers.buyapi]\ncommand = "npx"\nargs = ["-y", "buyapi", "mcp"]`;
 }
 
-async function confirmSync(toolCount: number): Promise<boolean> {
-  if (!process.stdin.isTTY || !process.stdout.isTTY) return false;
-  process.stdout.write(
-    `Sync ${toolCount} detected tools to your private BuyAPI dashboard? [y/N] `
+async function confirmSync(
+  toolCount: number,
+  unknownCandidateCount: number
+): Promise<boolean> {
+  if (!canPrompt()) return false;
+  return promptYesNo(
+    `Sync ${toolCount} detected tools${
+      unknownCandidateCount ? ` and ${unknownCandidateCount} unknown package candidates` : ""
+    } to your private BuyAPI dashboard? [y/N] `
   );
+}
+
+async function promptYesNo(message: string, defaultYes = false): Promise<boolean> {
+  if (!canPrompt()) return false;
+  process.stdout.write(message);
   const answer = await new Promise<string>((resolve) => {
     process.stdin.resume();
     process.stdin.once("data", (chunk) => {
@@ -723,6 +803,7 @@ async function confirmSync(toolCount: number): Promise<boolean> {
       resolve(String(chunk).trim().toLowerCase());
     });
   });
+  if (!answer) return defaultYes;
   return answer === "y" || answer === "yes";
 }
 

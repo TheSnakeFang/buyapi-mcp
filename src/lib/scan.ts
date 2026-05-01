@@ -271,6 +271,10 @@ export function formatStackScan(
   result: StackScanResult,
   options: { verbose?: boolean; syncHint?: boolean } = {}
 ): string {
+  const likelyWrongRoot =
+    result.filesChecked.length === 0 &&
+    result.tools.length === 0 &&
+    result.unknownDependencies.length === 0;
   const lines = [
     "BuyAPI stack scan",
     `Root: ${result.root}`,
@@ -297,6 +301,14 @@ export function formatStackScan(
     }
   }
 
+  if (!options.verbose && result.unknownDependencies.length > 0) {
+    lines.push(
+      "",
+      `Unknown package candidates: ${result.unknownDependencies.length}`,
+      "Use --verbose to preview them. Sync queues package names and versions for review."
+    );
+  }
+
   if (result.warnings.length > 0) {
     lines.push("", "Warnings:", ...result.warnings.map((warning) => `- ${warning}`));
   }
@@ -313,11 +325,22 @@ export function formatStackScan(
     }
   }
 
+  if (likelyWrongRoot) {
+    lines.push(
+      "",
+      "This does not look like a project root yet.",
+      "Run the scan from a folder with package.json, a lockfile, framework config, convex/, prisma/, or source imports.",
+      "Examples:",
+      "  cd apps/web && npx buyapi scan",
+      "  npx buyapi scan /path/to/project"
+    );
+  }
+
   lines.push(
     "",
     options.syncHint
       ? "Run buyapi scan --sync --yes to save this stack to your BuyAPI dashboard."
-      : "This command is local-only. It does not upload your stack or create an account."
+      : "Local-only: nothing was uploaded. Run buyapi scan --sync to save this private stack."
   );
   return lines.join("\n");
 }

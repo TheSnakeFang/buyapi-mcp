@@ -60,7 +60,7 @@ describe("scanStack", () => {
     const text = formatStackScan(scanStack(root));
     expect(text).toContain("BuyAPI stack scan");
     expect(text).toContain("/email/resend");
-    expect(text).toContain("does not upload");
+    expect(text).toContain("nothing was uploaded");
   });
 
   it("detects env examples and prints verbose evidence", () => {
@@ -83,19 +83,30 @@ describe("scanStack", () => {
     expect(text).toContain("methods: env");
   });
 
-  it("prints unknown package candidates in verbose mode only", () => {
+  it("summarizes unknown package candidates and lists them in verbose mode", () => {
     const root = mkdtempSync(join(tmpdir(), "buyapi-scan-"));
     writeFileSync(
       join(root, "package.json"),
       JSON.stringify({ dependencies: { "brand-new-ai-sdk": "0.0.1" } })
     );
 
+    expect(formatStackScan(scanStack(root))).toContain(
+      "Unknown package candidates: 1"
+    );
     expect(formatStackScan(scanStack(root))).not.toContain(
-      "Unknown package candidates"
+      "brand-new-ai-sdk@0.0.1"
     );
     expect(formatStackScan(scanStack(root), { verbose: true })).toContain(
       "brand-new-ai-sdk@0.0.1"
     );
+  });
+
+  it("prints wrong-root guidance when no project signals are found", () => {
+    const root = mkdtempSync(join(tmpdir(), "buyapi-scan-"));
+
+    const text = formatStackScan(scanStack(root));
+    expect(text).toContain("This does not look like a project root yet.");
+    expect(text).toContain("npx buyapi scan /path/to/project");
   });
 
   it("hides supporting detections unless includeAll is set", () => {
