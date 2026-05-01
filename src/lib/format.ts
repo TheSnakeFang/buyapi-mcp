@@ -225,7 +225,20 @@ export function formatStackRows(rows: StackProfile[]): string {
             `- ${tool.vendorSlug}: ${tool.role} (${tool.confidence} confidence)`
         )
         .join("\n");
-      return `**${row.projectName}** · ${row.ownerName} · ${row.stage}\n${row.summary}\nAudience: ${row.audience.join(", ")}\n${tools}`;
+      const context = formatStackContext(row.context);
+      return `**${row.projectName}** · ${row.ownerName} · ${row.stage}\n${row.summary}\nAudience: ${row.audience.join(", ")}${context ? `\nContext: ${context}` : ""}\n${tools}`;
     })
     .join("\n\n---\n\n");
+}
+
+function formatStackContext(context: StackProfile["context"]) {
+  if (!context) return "";
+  return [
+    ...context.languages,
+    ...context.frameworks,
+    ...context.runtimes,
+    ...context.packageManagers,
+    ...context.testing,
+    ...context.devWorkflow,
+  ].join(", ");
 }

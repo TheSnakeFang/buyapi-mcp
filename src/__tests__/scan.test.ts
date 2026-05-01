@@ -15,9 +15,12 @@ describe("scanStack", () => {
           convex: "^1.0.0",
           "@clerk/nextjs": "^1.0.0",
           stripe: "^1.0.0",
+          next: "^16.0.0",
+          react: "^19.0.0",
           "ai-newthing": "^0.1.0",
         },
         devDependencies: {
+          typescript: "^5.0.0",
           vitest: "^4.0.0",
         },
       })
@@ -39,15 +42,22 @@ describe("scanStack", () => {
           packageName: "ai-newthing",
           dependencyType: "dependencies",
         }),
-        expect.objectContaining({
-          packageName: "vitest",
-          dependencyType: "devDependencies",
-        }),
       ])
     );
     expect(result.unknownDependencies.map((dep) => dep.packageName)).not.toContain(
       "convex"
     );
+    expect(result.unknownDependencies.map((dep) => dep.packageName)).not.toContain(
+      "typescript"
+    );
+    expect(result.unknownDependencies.map((dep) => dep.packageName)).not.toContain(
+      "vitest"
+    );
+    expect(result.context).toMatchObject({
+      frameworks: expect.arrayContaining(["Next.js", "React"]),
+      languages: expect.arrayContaining(["TypeScript"]),
+      testing: expect.arrayContaining(["Vitest"]),
+    });
   });
 
   it("formats a local-only scan report", () => {
@@ -151,7 +161,7 @@ describe("scanStack", () => {
     );
   });
 
-  it("tracks framework signals as supporting detections", () => {
+  it("tracks framework signals as stack context instead of tools", () => {
     const root = mkdtempSync(join(tmpdir(), "buyapi-scan-"));
     writeFileSync(
       join(root, "package.json"),
@@ -163,6 +173,7 @@ describe("scanStack", () => {
     );
     expect(
       scanStack(root, { includeAll: true }).tools.map((tool) => tool.vendorSlug)
-    ).toContain("/framework/nextjs");
+    ).not.toContain("/framework/nextjs");
+    expect(scanStack(root).context.frameworks).toContain("Next.js");
   });
 });

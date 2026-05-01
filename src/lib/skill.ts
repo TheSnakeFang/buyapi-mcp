@@ -53,13 +53,13 @@ Use this workflow when the user invokes /stack or asks for stack planning, stack
 - Do not upload source code, file contents, environment values, secrets, or private business data to BuyAPI.
 - Local inspection and \`buyapi scan\` are local by default.
 - Only run \`buyapi scan --sync\` after the user explicitly asks to save/sync the private stack.
-- When calling BuyAPI MCP, pass derived context such as vendor slugs, categories, confidence, workload, and constraints.
+- When calling BuyAPI MCP, pass derived context such as vendor slugs, categories, confidence, languages, frameworks, runtimes, package managers, workload, and constraints.
 
 ## Workflow
 
 1. Inspect the repository enough to understand the current stack. Prefer \`npx buyapi scan --json\` when command execution is available; otherwise inspect package/config files directly.
 2. Ask for missing decision constraints before making a final call: project stage, target users, budget, team size, compliance, deployment preferences, and existing vendor commitments.
-3. Build \`stackContext\` from detected tools:
+3. Build \`stackContext\` from detected tools and \`stackFacts\` from language/framework/runtime/package-manager context:
 
 \`\`\`json
 [
@@ -67,7 +67,16 @@ Use this workflow when the user invokes /stack or asks for stack planning, stack
 ]
 \`\`\`
 
-4. Call \`stacks.recommend\` with the project description, constraints, workload, and stackContext.
+\`\`\`json
+{
+  "languages": ["TypeScript"],
+  "frameworks": ["Next.js", "React"],
+  "packageManagers": ["pnpm"],
+  "testing": ["Vitest"]
+}
+\`\`\`
+
+4. Call \`stacks.recommend\` with the project description, constraints, workload, stackContext, and stackFacts.
 5. Use \`vendors.compare\`, \`vendors.estimateCost\`, \`vendors.evidence\`, and \`stacks.findSimilar\` when the user needs tradeoffs, cost math, source support, or examples.
 6. For implementation docs or exact SDK usage, use first-party docs or the user's preferred documentation tool after the stack decision is made.
 

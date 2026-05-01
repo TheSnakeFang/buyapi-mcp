@@ -71,6 +71,15 @@ export interface StackContextInput {
   confidence?: string;
 }
 
+export interface StackFactsInput {
+  languages?: string[];
+  frameworks?: string[];
+  runtimes?: string[];
+  packageManagers?: string[];
+  testing?: string[];
+  devWorkflow?: string[];
+}
+
 export interface VendorClaim {
   path: string;
   summary: string;
@@ -137,11 +146,21 @@ export interface StackProfile {
     confidence: "high" | "medium" | "low";
     notes: string;
   }>;
+  context?: StackContext;
   submittedBy: string | null;
   visibility: "private" | "unlisted" | "public";
   createdAt: string;
   updatedAt: string;
   verifiedAt: string | null;
+}
+
+export interface StackContext {
+  languages: string[];
+  frameworks: string[];
+  runtimes: string[];
+  packageManagers: string[];
+  testing: string[];
+  devWorkflow: string[];
 }
 
 export interface UnknownCorpusResult {
@@ -285,4 +304,5 @@ export interface RecommendRequest {
   constraints?: string;
   workload?: WorkloadInput;
   stackContext?: StackContextInput[];
+  stackFacts?: StackFactsInput;
 }

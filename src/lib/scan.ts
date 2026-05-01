@@ -19,9 +19,19 @@ export type StackScanUnknownDependency = {
   evidence: string[];
 };
 
+export type StackScanContext = {
+  languages: string[];
+  frameworks: string[];
+  runtimes: string[];
+  packageManagers: string[];
+  testing: string[];
+  devWorkflow: string[];
+};
+
 export type StackScanResult = {
   root: string;
   tools: StackScanTool[];
+  context: StackScanContext;
   unknownDependencies: StackScanUnknownDependency[];
   filesChecked: string[];
   warnings: string[];
@@ -53,8 +63,6 @@ const PACKAGE_RULES: Array<{
   { packages: ["@vercel/analytics", "@vercel/blob"], vendorSlug: "/hosting/vercel", category: "hosting" },
   { packages: ["posthog-js", "posthog-node"], vendorSlug: "/analytics/posthog", category: "analytics" },
   { packages: ["@sentry/nextjs", "@sentry/node"], vendorSlug: "/monitoring/sentry", category: "monitoring" },
-  { packages: ["next"], vendorSlug: "/framework/nextjs", category: "framework", method: "framework", primary: false },
-  { packages: ["vite"], vendorSlug: "/framework/vite", category: "framework", method: "framework", primary: false },
 ];
 
 const FILE_RULES: Array<{
@@ -120,6 +128,7 @@ export function scanStack(
   const filesChecked: string[] = [];
   const warnings: string[] = [];
   const detected = new Map<string, StackScanTool>();
+  const context = emptyContext();
   const unknownDependencies: StackScanUnknownDependency[] = [];
 
   const packageJsonPath = join(root, "package.json");
@@ -137,6 +146,9 @@ export function scanStack(
         )
       ) as Record<string, string>;
       const matchedPackages = new Set<string>();
+      for (const packageName of addPackageContext(deps, context)) {
+        matchedPackages.add(packageName);
+      }
 
       for (const rule of PACKAGE_RULES) {
         const matches = rule.packages.filter((name) => deps[name]);
@@ -180,7 +192,10 @@ export function scanStack(
     "next.config.ts",
     "next.config.js",
   ]) {
-    if (existsSync(join(root, file))) filesChecked.push(file);
+    if (existsSync(join(root, file))) {
+      filesChecked.push(file);
+      addPackageManagerContext(file, context);
+    }
   }
 
   for (const rule of FILE_RULES) {
@@ -208,12 +223,92 @@ export function scanStack(
       .sort((a, b) =>
         `${a.category}:${a.vendorSlug}`.localeCompare(`${b.category}:${b.vendorSlug}`)
       ),
+    context: sortContext(context),
     unknownDependencies: unknownDependencies.sort((a, b) =>
       a.packageName.localeCompare(b.packageName)
     ),
     filesChecked: [...new Set(filesChecked)].sort(),
     warnings,
   };
+}
+
+function emptyContext(): StackScanContext {
+  return {
+    languages: [],
+    frameworks: [],
+    runtimes: [],
+    packageManagers: [],
+    testing: [],
+    devWorkflow: [],
+  };
+}
+
+function addPackageContext(
+  deps: Record<string, string>,
+  context: StackScanContext
+): string[] {
+  const matched: string[] = [];
+  const rules: Array<{
+    packages: string[];
+    bucket: keyof StackScanContext;
+    value: string;
+  }> = [
+    { packages: ["typescript", "ts-node", "tsx"], bucket: "languages", value: "TypeScript" },
+    { packages: ["next"], bucket: "frameworks", value: "Next.js" },
+    { packages: ["react"], bucket: "frameworks", value: "React" },
+    { packages: ["react-native"], bucket: "frameworks", value: "React Native" },
+    { packages: ["expo"], bucket: "frameworks", value: "Expo" },
+    { packages: ["vue"], bucket: "frameworks", value: "Vue" },
+    { packages: ["svelte"], bucket: "frameworks", value: "Svelte" },
+    { packages: ["astro"], bucket: "frameworks", value: "Astro" },
+    { packages: ["vite"], bucket: "devWorkflow", value: "Vite" },
+    { packages: ["vitest", "@vitest/ui"], bucket: "testing", value: "Vitest" },
+    { packages: ["jest"], bucket: "testing", value: "Jest" },
+    { packages: ["playwright", "@playwright/test"], bucket: "testing", value: "Playwright" },
+    { packages: ["cypress"], bucket: "testing", value: "Cypress" },
+    { packages: ["eslint"], bucket: "devWorkflow", value: "ESLint" },
+    { packages: ["prettier"], bucket: "devWorkflow", value: "Prettier" },
+    { packages: ["tailwindcss"], bucket: "devWorkflow", value: "Tailwind CSS" },
+  ];
+
+  for (const rule of rules) {
+    const packageName = rule.packages.find((name) => deps[name]);
+    if (!packageName) continue;
+    context[rule.bucket].push(rule.value);
+    matched.push(...rule.packages.filter((name) => deps[name]));
+  }
+
+  if (Object.keys(deps).some((name) => name.startsWith("@types/"))) {
+    context.languages.push("TypeScript");
+    matched.push(...Object.keys(deps).filter((name) => name.startsWith("@types/")));
+  }
+
+  return matched;
+}
+
+function addPackageManagerContext(file: string, context: StackScanContext) {
+  if (file === "pnpm-lock.yaml") context.packageManagers.push("pnpm");
+  if (file === "package-lock.json") context.packageManagers.push("npm");
+  if (file === "yarn.lock") context.packageManagers.push("Yarn");
+  if (file === "bun.lockb") {
+    context.packageManagers.push("Bun");
+    context.runtimes.push("Bun");
+  }
+}
+
+function sortContext(context: StackScanContext): StackScanContext {
+  return {
+    languages: uniqueSorted(context.languages),
+    frameworks: uniqueSorted(context.frameworks),
+    runtimes: uniqueSorted(context.runtimes),
+    packageManagers: uniqueSorted(context.packageManagers),
+    testing: uniqueSorted(context.testing),
+    devWorkflow: uniqueSorted(context.devWorkflow),
+  };
+}
+
+function uniqueSorted(values: string[]) {
+  return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
 
 function scanConfigFiles(
@@ -301,6 +396,11 @@ export function formatStackScan(
     }
   }
 
+  const contextLines = formatContextLines(result.context);
+  if (contextLines.length > 0) {
+    lines.push("", "Stack context:", ...contextLines);
+  }
+
   if (!options.verbose && result.unknownDependencies.length > 0) {
     lines.push(
       "",
@@ -343,6 +443,21 @@ export function formatStackScan(
       : "Local-only: nothing was uploaded. Run buyapi scan --sync to save this private stack."
   );
   return lines.join("\n");
+}
+
+function formatContextLines(context: StackScanContext): string[] {
+  const groups: Array<[string, string[]]> = [
+    ["languages", context.languages],
+    ["frameworks", context.frameworks],
+    ["runtimes", context.runtimes],
+    ["package managers", context.packageManagers],
+    ["testing", context.testing],
+    ["dev workflow", context.devWorkflow],
+  ];
+
+  return groups.flatMap(([label, values]) =>
+    values.length > 0 ? [`- ${label}: ${values.join(", ")}`] : []
+  );
 }
 
 function readDependencyGroups(pkg: unknown): Array<{

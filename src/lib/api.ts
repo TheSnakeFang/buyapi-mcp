@@ -3,6 +3,7 @@ import type {
   VendorProfile,
   StackRecommendation,
   StackContextInput,
+  StackFactsInput,
   EvidenceRow,
   StackProfile,
   WorkloadInput,
@@ -95,7 +96,8 @@ export async function recommendStack(
   projectDescription: string,
   constraints?: string,
   workload?: WorkloadInput,
-  stackContext?: StackContextInput[]
+  stackContext?: StackContextInput[],
+  stackFacts?: StackFactsInput
 ): Promise<StackRecommendation> {
   return request<StackRecommendation>("/api/recommend", {
     method: "POST",
@@ -104,6 +106,7 @@ export async function recommendStack(
       constraints,
       workload,
       stackContext,
+      stackFacts,
     }),
   });
 }

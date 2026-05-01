@@ -89,6 +89,20 @@ const stackContextSchema = z
     "Optional existing stack context from a repo scan or saved private stack. Pass derived tool metadata only, not source code."
   );
 
+const stackFactsSchema = z
+  .object({
+    languages: z.array(z.string()).optional(),
+    frameworks: z.array(z.string()).optional(),
+    runtimes: z.array(z.string()).optional(),
+    packageManagers: z.array(z.string()).optional(),
+    testing: z.array(z.string()).optional(),
+    devWorkflow: z.array(z.string()).optional(),
+  })
+  .optional()
+  .describe(
+    "Optional derived stack facts such as languages, frameworks, runtimes, package managers, test tools, and dev workflow. Do not pass source code or secrets."
+  );
+
 function errorContent(prefix: string, error: unknown) {
   return {
     content: [
@@ -302,15 +316,17 @@ Use this when the user is starting a project or asks for a complete stack choice
       .describe("Budget, scale, existing tools, team size, compliance needs"),
     workload: workloadSchema.optional(),
     stackContext: stackContextSchema,
+    stackFacts: stackFactsSchema,
   },
   readOnlyTool,
-  async ({ projectDescription, constraints, workload, stackContext }) => {
+  async ({ projectDescription, constraints, workload, stackContext, stackFacts }) => {
     try {
       const recommendation = await recommendStack(
         projectDescription,
         constraints,
         workload,
-        stackContext
+        stackContext,
+        stackFacts
       );
       return {
         structuredContent: structured(recommendation),
@@ -694,7 +710,11 @@ function printSetupModeSummary(mode: "remote" | "local") {
 }
 
 function hasSyncableScanData(scan: StackScanResult) {
-  return scan.tools.length > 0 || scan.unknownDependencies.length > 0;
+  return (
+    scan.tools.length > 0 ||
+    scan.unknownDependencies.length > 0 ||
+    Object.values(scan.context).some((values) => values.length > 0)
+  );
 }
 
 function canPrompt() {

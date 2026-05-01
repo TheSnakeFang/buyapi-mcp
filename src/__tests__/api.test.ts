@@ -167,6 +167,33 @@ describe("recommendStack", () => {
     ]);
   });
 
+  it("can send derived stack facts", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ stack: {} }),
+    });
+
+    await recommendStack(
+      "B2B app",
+      undefined,
+      undefined,
+      undefined,
+      {
+        languages: ["TypeScript"],
+        frameworks: ["Next.js", "React"],
+        packageManagers: ["pnpm"],
+      }
+    );
+
+    const [, init] = mockFetch.mock.calls[0];
+    const body = JSON.parse(init.body);
+    expect(body.stackFacts).toEqual({
+      languages: ["TypeScript"],
+      frameworks: ["Next.js", "React"],
+      packageManagers: ["pnpm"],
+    });
+  });
+
   it("sends API key as Bearer token when set", async () => {
     process.env.BUYAPI_API_KEY = "ba_live_test123";
     mockFetch.mockResolvedValue({
