@@ -8,6 +8,7 @@ describe("parseCliCommand", () => {
       client: undefined,
       mode: "remote",
       print: false,
+      skill: false,
     });
   });
 
@@ -17,18 +18,41 @@ describe("parseCliCommand", () => {
       client: undefined,
       mode: "local",
       print: false,
+      skill: false,
     });
     expect(parseCliCommand(["setup", "cursor"])).toEqual({
       name: "setup",
       client: "cursor",
       mode: "remote",
       print: false,
+      skill: false,
     });
     expect(parseCliCommand(["setup", "codex", "--local", "--print"])).toEqual({
       name: "setup",
       client: "codex",
       mode: "local",
       print: true,
+      skill: false,
+    });
+    expect(parseCliCommand(["setup", "claude-code", "--skill"])).toEqual({
+      name: "setup",
+      client: "claude-code",
+      mode: "remote",
+      print: false,
+      skill: true,
+    });
+  });
+
+  it("parses stack skill setup", () => {
+    expect(parseCliCommand(["setup-skill", "claude", "--print"])).toEqual({
+      name: "setup-skill",
+      client: "claude-code",
+      print: true,
+    });
+    expect(parseCliCommand(["setup-skill", "codex"])).toEqual({
+      name: "setup-skill",
+      client: "codex",
+      print: false,
     });
   });
 
@@ -166,6 +190,7 @@ describe("parseCliCommand", () => {
     expect(text).toContain("buyapi search <query>");
     expect(text).toContain("buyapi scan --sync");
     expect(text).toContain("buyapi compare <ids...>");
+    expect(text).toContain("buyapi setup-skill <client>");
     expect(text).toContain("buyapi-mcp is deprecated");
     expect(text).toContain("By default, scan is local-only");
     expect(text).toContain("npm install -g buyapi");

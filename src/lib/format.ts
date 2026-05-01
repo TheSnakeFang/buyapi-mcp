@@ -5,6 +5,8 @@ import type {
   DecisionMatrixRow,
   VendorCostEstimate,
   UnknownCorpusResult,
+  EvidenceRow,
+  StackProfile,
 } from "./types.js";
 import { buildVendorClaims } from "./decision.js";
 
@@ -185,6 +187,45 @@ export function formatCostEstimates(estimates: VendorCostEstimate[]): string {
         lines.push(`Unknowns: ${estimate.unknowns.join("; ")}`);
       }
       return lines.join("\n");
+    })
+    .join("\n\n---\n\n");
+}
+
+export function formatEvidenceRows(rows: EvidenceRow[]): string {
+  if (rows.length === 0) {
+    return "No reviewed evidence rows are attached yet.";
+  }
+
+  return rows
+    .map((row) => {
+      const lines = [
+        `**${row.sourceType.replaceAll("-", " ")}** · ${row.stance} · ${row.confidence}`,
+        row.summary,
+        `Source: ${row.sourceTitle} (${row.sourceUrl})`,
+        `Observed: ${row.observedAt}${row.authorName ? ` · Author: ${row.authorName}` : ""}`,
+      ];
+      if (row.appliesTo.length) {
+        lines.push(`Applies to: ${row.appliesTo.join(", ")}`);
+      }
+      return lines.join("\n");
+    })
+    .join("\n\n---\n\n");
+}
+
+export function formatStackRows(rows: StackProfile[]): string {
+  if (rows.length === 0) {
+    return "No reviewed or curated public stack profiles found yet. Treat this as sparse BuyAPI coverage, not evidence that no similar builders use this tool.";
+  }
+
+  return rows
+    .map((row) => {
+      const tools = row.tools
+        .map(
+          (tool) =>
+            `- ${tool.vendorSlug}: ${tool.role} (${tool.confidence} confidence)`
+        )
+        .join("\n");
+      return `**${row.projectName}** · ${row.ownerName} · ${row.stage}\n${row.summary}\nAudience: ${row.audience.join(", ")}\n${tools}`;
     })
     .join("\n\n---\n\n");
 }

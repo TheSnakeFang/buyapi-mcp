@@ -5,7 +5,9 @@ import { z } from "zod";
 import {
   compareVendors,
   estimateCosts,
+  findSimilarStacks,
   getAccountStatus,
+  getEvidence,
   getVendorDetails,
   recommendStack,
   searchVendors,
@@ -24,13 +26,23 @@ import {
   installClientConfig,
   MCP_URL,
   SETUP_CLIENTS,
+  type SetupClient,
   setupSnippet,
   setupTargetPath,
 } from "./lib/setup.js";
 import {
+  installStackSkill,
+  SKILL_CLIENTS,
+  stackSkillContent,
+  stackSkillTargetPath,
+  type SkillClient,
+} from "./lib/skill.js";
+import {
   formatCostEstimates,
   formatDecisionMatrix,
+  formatEvidenceRows,
   formatSearchResults,
+  formatStackRows,
   formatStackRecommendation,
   formatUnknown,
   formatVendorProfile,
@@ -59,6 +71,22 @@ const workloadSchema = z
   })
   .describe(
     "Explicit workload assumptions for deterministic cost estimates. Missing fields become assumptions, not fabricated precision."
+  );
+
+const stackContextSchema = z
+  .array(
+    z.object({
+      vendorSlug: z.string().describe("BuyAPI vendor ID, e.g. /database/convex"),
+      category: z.string().describe("The role/category this tool fills"),
+      confidence: z
+        .string()
+        .optional()
+        .describe("Scanner or user confidence for this detected tool"),
+    })
+  )
+  .optional()
+  .describe(
+    "Optional existing stack context from a repo scan or saved private stack. Pass derived tool metadata only, not source code."
   );
 
 function errorContent(prefix: string, error: unknown) {
@@ -147,6 +175,60 @@ Call vendors.resolve first unless the user already provided a BuyAPI vendor ID l
 );
 
 server.tool(
+  "vendors.evidence",
+  `Returns recent BuyAPI evidence rows for a vendor, category, stack, or comparison.
+
+Use this when the user asks why BuyAPI believes something, what sources support a vendor page, or what recent human/source signals exist.`,
+  {
+    subjectType: z
+      .enum(["vendor", "category", "stack", "comparison"])
+      .describe("Evidence subject type"),
+    subjectId: z
+      .string()
+      .describe("Subject ID, e.g. /database/supabase or database"),
+    limit: z.number().optional().describe("Maximum rows to return"),
+  },
+  readOnlyTool,
+  async ({ subjectType, subjectId, limit }) => {
+    try {
+      const result = await getEvidence({ subjectType, subjectId, limit });
+      return {
+        structuredContent: structured(result),
+        content: [{ type: "text", text: formatEvidenceRows(result.evidence) }],
+      };
+    } catch (error) {
+      return errorContent("Error fetching evidence", error);
+    }
+  }
+);
+
+server.tool(
+  "stacks.findSimilar",
+  `Finds public stack profiles related to a vendor or recent curated stack examples.
+
+Use this when the user asks who uses a tool, what similar builders use, or wants examples of real stack combinations.`,
+  {
+    vendorId: z
+      .string()
+      .optional()
+      .describe("Optional BuyAPI vendor ID, e.g. /database/convex"),
+    limit: z.number().optional().describe("Maximum stacks to return"),
+  },
+  readOnlyTool,
+  async ({ vendorId, limit }) => {
+    try {
+      const result = await findSimilarStacks({ vendorId, limit });
+      return {
+        structuredContent: structured(result),
+        content: [{ type: "text", text: formatStackRows(result.stacks) }],
+      };
+    } catch (error) {
+      return errorContent("Error finding similar stacks", error);
+    }
+  }
+);
+
+server.tool(
   "vendors.compare",
   `Compares two or more BuyAPI vendors for a specific workload or decision.
 
@@ -219,14 +301,16 @@ Use this when the user is starting a project or asks for a complete stack choice
       .optional()
       .describe("Budget, scale, existing tools, team size, compliance needs"),
     workload: workloadSchema.optional(),
+    stackContext: stackContextSchema,
   },
   readOnlyTool,
-  async ({ projectDescription, constraints, workload }) => {
+  async ({ projectDescription, constraints, workload, stackContext }) => {
     try {
       const recommendation = await recommendStack(
         projectDescription,
         constraints,
-        workload
+        workload,
+        stackContext
       );
       return {
         structuredContent: structured(recommendation),
@@ -264,14 +348,48 @@ async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
         return;
       }
       if (command.print) {
-        console.log(setupPrintText(command.client, command.mode));
+        console.log(setupPrintText(command.client, command.mode, command.skill));
         return;
       }
       {
+        const skillClient = skillClientForSetup(command.client);
+        if (command.skill && !skillClient) {
+          throw new Error(
+            "The /stack skill installer currently supports claude-code and codex."
+          );
+        }
         const result = installClientConfig(command.client, command.mode);
         console.log(result.message);
         console.log(
           result.changed ? "Updated config." : "Config was already up to date."
+        );
+        if (command.skill && skillClient) {
+          const skillResult = installStackSkill(skillClient);
+          console.log(skillResult.message);
+          console.log(
+            skillResult.changed
+              ? "Updated /stack skill."
+              : "/stack skill was already up to date."
+          );
+        }
+      }
+      return;
+    case "setup-skill":
+      if (!command.client) {
+        console.log(setupSkillText());
+        return;
+      }
+      if (command.print) {
+        console.log(setupSkillPrintText(command.client));
+        return;
+      }
+      {
+        const result = installStackSkill(command.client);
+        console.log(result.message);
+        console.log(
+          result.changed
+            ? "Updated /stack skill."
+            : "/stack skill was already up to date."
         );
       }
       return;
@@ -443,6 +561,10 @@ Interactive setup:
 Install BuyAPI for an agent:
   ${SETUP_CLIENTS.map((client) => `  buyapi setup ${client}`).join("\n")}
 
+Install the /stack planning skill where supported:
+  buyapi setup claude-code --skill
+  buyapi setup-skill codex
+
 Install the CLI globally if you do not want to type npx:
   npm install -g buyapi
   buyapi scan
@@ -455,6 +577,7 @@ If your client needs a local stdio server, configure it to run:
 
 To inspect config instead of writing it:
   buyapi setup <client> --print
+  buyapi setup-skill <client> --print
 
 For stack-aware recommendations:
   1. Run: buyapi login
@@ -499,6 +622,28 @@ async function runInteractiveSetup(defaultMode: "remote" | "local") {
     );
     printSetupModeSummary(mode);
 
+    const skillClient = skillClientForSetup(client);
+    if (skillClient) {
+      const skillAnswer = await rl.question(
+        "Install the /stack planning skill? [Y/n] "
+      );
+      if (!skillAnswer.trim().toLowerCase().startsWith("n")) {
+        const skillResult = installStackSkill(skillClient);
+        console.log(skillResult.message);
+        console.log(
+          skillResult.changed
+            ? "Updated /stack skill."
+            : "/stack skill was already up to date."
+        );
+      } else {
+        console.log("Skipped /stack skill. You can run buyapi setup-skill later.");
+      }
+    } else {
+      console.log(
+        "/stack skill install is currently available for Claude Code and Codex."
+      );
+    }
+
     const loginAnswer = await rl.question(
       "Login now for higher limits and stack sync? [Y/n] "
     );
@@ -540,13 +685,24 @@ function inferProjectName(root: string) {
 
 function setupPrintText(
   client: "claude-code" | "cursor" | "codex" | "windsurf" | "cline",
-  mode: "remote" | "local"
+  mode: "remote" | "local",
+  includeSkill = false
 ) {
   const vscode = client === "cline";
-  return `BuyAPI config for ${client}
+  const mcpText = `BuyAPI config for ${client}
 Path: ${setupTargetPath(client)}
 
 ${client === "codex" ? codexPrintSnippet(mode) : setupSnippet(mode, vscode)}`;
+  if (!includeSkill) return mcpText;
+  const skillClient = skillClientForSetup(client);
+  if (!skillClient) {
+    return `${mcpText}
+
+/stack skill install is currently available for Claude Code and Codex.`;
+  }
+  return `${mcpText}
+
+${setupSkillPrintText(skillClient)}`;
 }
 
 function codexPrintSnippet(mode: "remote" | "local") {
@@ -568,6 +724,32 @@ async function confirmSync(toolCount: number): Promise<boolean> {
     });
   });
   return answer === "y" || answer === "yes";
+}
+
+function skillClientForSetup(client: SetupClient): SkillClient | null {
+  if (client === "claude-code" || client === "codex") return client;
+  return null;
+}
+
+function setupSkillText() {
+  return `BuyAPI /stack skill setup
+
+Install:
+${SKILL_CLIENTS.map((client) => `  buyapi setup-skill ${client}`).join("\n")}
+
+Add it during MCP setup:
+  buyapi setup claude-code --skill
+  buyapi setup codex --skill
+
+To inspect the skill instead of writing it:
+  buyapi setup-skill <client> --print`;
+}
+
+function setupSkillPrintText(client: SkillClient) {
+  return `BuyAPI /stack skill for ${client}
+Path: ${stackSkillTargetPath(client)}
+
+${stackSkillContent()}`;
 }
 
 main().catch((error) => {

@@ -39,7 +39,7 @@ Run setup to install BuyAPI into your agent:
 npx buyapi
 ```
 
-Bare `npx buyapi` opens an interactive setup flow. It asks which coding agent you use, installs the hosted MCP config by default, and can log you in for higher limits and stack sync.
+Bare `npx buyapi` opens an interactive setup flow. It asks which coding agent you use, installs the hosted MCP config by default, can add the `/stack` planning skill where supported, and can log you in for higher limits and stack sync.
 
 Or target a client directly:
 
@@ -56,6 +56,15 @@ By default setup writes the hosted MCP URL. Use `--local` when a client needs a 
 ```bash
 npx buyapi setup codex --local
 ```
+
+Claude Code and Codex can also install the `/stack` planning workflow:
+
+```bash
+npx buyapi setup claude-code --skill
+npx buyapi setup-skill codex
+```
+
+`/stack` inspects the local repo, asks for missing constraints, calls BuyAPI MCP for current vendor data, and returns a sourced Stack Decision Record. It does not sync scan data unless you explicitly ask it to.
 
 If you use the CLI often and do not want to type `npx`, install it globally:
 
@@ -235,6 +244,7 @@ Describe your project and get a complete stack recommendation with cost projecti
 ```
 Project: "SaaS for restaurant inventory with real-time updates"
 Constraints: "Solo founder, under $50/month until 1000 users"
+Stack context: [{ "vendorSlug": "/database/convex", "category": "database", "confidence": "high" }]
 
 -> Returns: Full stack (hosting + DB + auth + payments + email) with structured cost and decision data
 ```
@@ -349,6 +359,8 @@ The local package reads either `BUYAPI_API_KEY` or the key stored by `buyapi log
 ```bash
 buyapi                             # Show setup guidance
 buyapi setup <client>              # Install MCP config for an agent
+buyapi setup <client> --skill      # Install MCP config and the /stack skill
+buyapi setup-skill <client>        # Install the /stack skill only
 buyapi mcp                         # Run the local MCP server over stdio
 buyapi login                       # Browser login and local key storage
 buyapi login <api-key>             # Store an existing API key
@@ -371,6 +383,7 @@ Common flags:
 --query <text>          Add workload or decision context
 --client <name>         Setup target: claude-code, cursor, codex, windsurf, cline
 --local                 Write local stdio MCP config during setup
+--skill                 Also install the /stack planning skill during setup
 --print                 Print setup config instead of writing it
 --name <text>           Stack name for scan sync
 --stack-name <text>     Alias for --name

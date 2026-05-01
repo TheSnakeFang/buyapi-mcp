@@ -7,9 +7,13 @@ const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 // Import after stubbing fetch
-const { searchVendors, getVendorDetails, recommendStack } = await import(
-  "../lib/api.js"
-);
+const {
+  searchVendors,
+  getVendorDetails,
+  recommendStack,
+  getEvidence,
+  findSimilarStacks,
+} = await import("../lib/api.js");
 
 beforeEach(() => {
   mockFetch.mockReset();
@@ -55,6 +59,27 @@ describe("searchVendors", () => {
 
     await expect(searchVendors("test", "database")).rejects.toThrow(
       "429 Too Many Requests"
+    );
+  });
+
+  it("surfaces structured rate-limit upgrade guidance", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 429,
+      statusText: "Too Many Requests",
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            message: "Anonymous BuyAPI rate limit exceeded.",
+            retryAfter: 12,
+            upgradeUrl: "https://buyapi.ai/dashboard",
+            docsUrl: "https://buyapi.ai/docs#limits",
+          })
+        ),
+    });
+
+    await expect(searchVendors("test", "database")).rejects.toThrow(
+      "Anonymous BuyAPI rate limit exceeded. Retry after 12s. Dashboard: https://buyapi.ai/dashboard Limits: https://buyapi.ai/docs#limits"
     );
   });
 });
@@ -117,6 +142,31 @@ describe("recommendStack", () => {
     expect(body.constraints).toBe("under $50/month");
   });
 
+  it("can send existing stack context", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ stack: {} }),
+    });
+
+    await recommendStack("B2B app", undefined, undefined, [
+      {
+        vendorSlug: "/database/convex",
+        category: "database",
+        confidence: "high",
+      },
+    ]);
+
+    const [, init] = mockFetch.mock.calls[0];
+    const body = JSON.parse(init.body);
+    expect(body.stackContext).toEqual([
+      {
+        vendorSlug: "/database/convex",
+        category: "database",
+        confidence: "high",
+      },
+    ]);
+  });
+
   it("sends API key as Bearer token when set", async () => {
     process.env.BUYAPI_API_KEY = "ba_live_test123";
     mockFetch.mockResolvedValue({
@@ -130,6 +180,43 @@ describe("recommendStack", () => {
 
     const [, init] = mockFetch.mock.calls[0];
     expect(init.headers.Authorization).toBe("Bearer ba_live_test123");
+  });
+});
+
+describe("getEvidence", () => {
+  it("calls the evidence endpoint with subject params", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ evidence: [] }),
+    });
+
+    await getEvidence({
+      subjectType: "vendor",
+      subjectId: "/database/supabase",
+      limit: 5,
+    });
+
+    const [url] = mockFetch.mock.calls[0];
+    expect(url).toContain("/api/evidence");
+    expect(url).toContain("subjectType=vendor");
+    expect(url).toContain("subjectId=%2Fdatabase%2Fsupabase");
+    expect(url).toContain("limit=5");
+  });
+});
+
+describe("findSimilarStacks", () => {
+  it("calls the similar stacks endpoint with optional vendor", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ stacks: [] }),
+    });
+
+    await findSimilarStacks({ vendorId: "/database/convex", limit: 3 });
+
+    const [url] = mockFetch.mock.calls[0];
+    expect(url).toContain("/api/stacks/similar");
+    expect(url).toContain("vendorId=%2Fdatabase%2Fconvex");
+    expect(url).toContain("limit=3");
   });
 });
 

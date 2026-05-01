@@ -65,6 +65,12 @@ export interface WorkloadInput {
   notes?: string;
 }
 
+export interface StackContextInput {
+  vendorSlug: string;
+  category: string;
+  confidence?: string;
+}
+
 export interface VendorClaim {
   path: string;
   summary: string;
@@ -72,6 +78,70 @@ export interface VendorClaim {
   observedAt: string;
   confidence: "high" | "medium" | "low";
   staleAfter: string;
+}
+
+export interface EvidenceRow {
+  subjectType: "vendor" | "category" | "stack" | "comparison";
+  subjectId: string;
+  sourceType:
+    | "first-party-docs"
+    | "pricing-page"
+    | "changelog"
+    | "company-stack"
+    | "repo-scan"
+    | "video"
+    | "podcast"
+    | "tweet"
+    | "blog"
+    | "benchmark"
+    | "reddit"
+    | "user-review"
+    | "vendor-claim"
+    | "manual-note";
+  sourceUrl: string;
+  sourceTitle: string;
+  authorName: string | null;
+  authorUrl: string | null;
+  publishedAt: string | null;
+  observedAt: string;
+  summary: string;
+  stance: "positive" | "negative" | "mixed" | "neutral";
+  appliesTo: string[];
+  confidence: "high" | "medium" | "low";
+  staleAfter: string;
+  createdBy: "system" | "user" | "admin" | "vendor";
+  reviewStatus: "unreviewed" | "reviewed" | "rejected";
+}
+
+export interface StackProfile {
+  slug: string;
+  ownerType: "user" | "company" | "project" | "curated";
+  ownerName: string;
+  projectName: string;
+  projectUrl: string | null;
+  summary: string;
+  stage:
+    | "idea"
+    | "prototype"
+    | "launched"
+    | "revenue"
+    | "funded"
+    | "enterprise";
+  teamSize: string | null;
+  audience: string[];
+  tools: Array<{
+    vendorSlug: string;
+    category: string;
+    role: string;
+    sourceType: "company-stack" | "repo-scan" | "user-submitted" | "manual-note";
+    confidence: "high" | "medium" | "low";
+    notes: string;
+  }>;
+  submittedBy: string | null;
+  visibility: "private" | "unlisted" | "public";
+  createdAt: string;
+  updatedAt: string;
+  verifiedAt: string | null;
 }
 
 export interface UnknownCorpusResult {
@@ -214,4 +284,5 @@ export interface RecommendRequest {
   projectDescription: string;
   constraints?: string;
   workload?: WorkloadInput;
+  stackContext?: StackContextInput[];
 }

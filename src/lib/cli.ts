@@ -1,6 +1,7 @@
 import type { WorkloadInput } from "./types.js";
 import { PACKAGE_VERSION } from "./version.js";
 import type { SetupClient, SetupMode } from "./setup.js";
+import type { SkillClient } from "./skill.js";
 
 export type CliCommand =
   | { name: "mcp" }
@@ -9,7 +10,9 @@ export type CliCommand =
       client?: SetupClient;
       mode: SetupMode;
       print: boolean;
+      skill: boolean;
     }
+  | { name: "setup-skill"; client?: SkillClient; print: boolean }
   | { name: "login"; apiKey?: string }
   | { name: "logout" }
   | { name: "whoami"; json: boolean }
@@ -83,11 +86,20 @@ export function parseCliCommand(argv: string[]): CliCommand {
       client,
       mode: options.local ? "local" : "remote",
       print: Boolean(options.print),
+      skill: Boolean(options.skill),
     };
   }
 
   const { positional, options, json } = parseOptions(rest);
   if (command === "mcp") return { name: "mcp" };
+
+  if (command === "setup-skill") {
+    return {
+      name: "setup-skill",
+      client: normalizeSkillClient(positional[0] || options.client),
+      print: Boolean(options.print),
+    };
+  }
 
   if (command === "login") {
     return { name: "login", apiKey: positional[0] || options.key };
@@ -195,6 +207,8 @@ Version: ${PACKAGE_VERSION}
 Commands:
   buyapi                             Show setup options for humans
   buyapi setup <client>              Install MCP config for a supported client
+  buyapi setup <client> --skill      Install MCP config and the /stack skill
+  buyapi setup-skill <client>         Install the /stack skill only
   buyapi mcp                         Run the local MCP server over stdio
   buyapi login                       Sign in through the browser and store a key
   buyapi login <api-key>             Store an existing API key for CLI sync
@@ -213,6 +227,7 @@ Options:
   --query <text>          Decision context or details focus
   --client <name>         setup target: claude-code, cursor, codex, windsurf, cline
   --local                 setup local stdio config instead of hosted MCP URL
+  --skill                 also install the /stack planning skill during setup
   --print                 print setup config instead of writing it
   --name <text>           Stack name for scan sync
   --stack-name <text>     Alias for --name
@@ -239,9 +254,9 @@ Install globally if you do not want to type npx:
   buyapi scan
 
 By default, scan is local-only. Use buyapi login and buyapi scan --sync to
-save a private stack to your dashboard. Run buyapi setup cursor, buyapi setup
-claude-code, buyapi setup codex, buyapi setup windsurf, or buyapi setup cline
-to write client config.`;
+save a private stack to your dashboard. Run buyapi setup claude-code --skill
+or buyapi setup-skill codex to add the /stack planning workflow where skills
+are supported.`;
 }
 
 function parseOptions(argv: string[]) {
@@ -266,6 +281,7 @@ function parseOptions(argv: string[]) {
         [
           "local",
           "print",
+          "skill",
           "dry-run",
           "verbose",
           "all",
@@ -286,6 +302,20 @@ function parseOptions(argv: string[]) {
   }
 
   return { positional, options, json };
+}
+
+function normalizeSkillClient(value?: string): SkillClient | undefined {
+  if (!value) return undefined;
+  const normalized = value.toLowerCase();
+  if (
+    normalized === "claude" ||
+    normalized === "claude-code" ||
+    normalized === "claudecode"
+  ) {
+    return "claude-code";
+  }
+  if (normalized === "codex" || normalized === "codex-cli") return "codex";
+  throw new Error(`Unknown skill client: ${value}. Use claude-code or codex.`);
 }
 
 function normalizeClient(value: string | undefined): SetupClient | undefined {

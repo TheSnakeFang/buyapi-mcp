@@ -2,6 +2,9 @@ import type {
   VendorSearchResponse,
   VendorProfile,
   StackRecommendation,
+  StackContextInput,
+  EvidenceRow,
+  StackProfile,
   WorkloadInput,
 } from "./types.js";
 import { buildDecisionMatrix, estimateVendorCost } from "./decision.js";
@@ -29,13 +32,40 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
+    const body = await readErrorBody(res);
     throw new Error(
       `BuyAPI request failed: ${res.status} ${res.statusText}${body ? ` — ${body}` : ""}`
     );
   }
 
   return res.json() as Promise<T>;
+}
+
+async function readErrorBody(res: Response) {
+  const body = await res.text().catch(() => "");
+  if (!body) return "";
+
+  try {
+    const parsed = JSON.parse(body) as {
+      message?: string;
+      retryAfter?: number;
+      upgradeUrl?: string;
+      docsUrl?: string;
+    };
+    const parts = [
+      parsed.message,
+      typeof parsed.retryAfter === "number"
+        ? `Retry after ${parsed.retryAfter}s.`
+        : null,
+      parsed.upgradeUrl ? `Dashboard: ${parsed.upgradeUrl}` : null,
+      parsed.docsUrl ? `Limits: ${parsed.docsUrl}` : null,
+    ].filter(Boolean);
+    if (parts.length > 0) return parts.join(" ");
+  } catch {
+    // Fall back to raw text for non-JSON upstream errors.
+  }
+
+  return body;
 }
 
 export async function searchVendors(
@@ -64,12 +94,44 @@ export async function getVendorDetails(
 export async function recommendStack(
   projectDescription: string,
   constraints?: string,
-  workload?: WorkloadInput
+  workload?: WorkloadInput,
+  stackContext?: StackContextInput[]
 ): Promise<StackRecommendation> {
   return request<StackRecommendation>("/api/recommend", {
     method: "POST",
-    body: JSON.stringify({ projectDescription, constraints, workload }),
+    body: JSON.stringify({
+      projectDescription,
+      constraints,
+      workload,
+      stackContext,
+    }),
   });
+}
+
+export async function getEvidence(args: {
+  subjectType: "vendor" | "category" | "stack" | "comparison";
+  subjectId: string;
+  limit?: number;
+}): Promise<{ evidence: EvidenceRow[] }> {
+  const params = new URLSearchParams({
+    subjectType: args.subjectType,
+    subjectId: args.subjectId,
+  });
+  if (args.limit) params.set("limit", String(args.limit));
+  return request<{ evidence: EvidenceRow[] }>(`/api/evidence?${params}`);
+}
+
+export async function findSimilarStacks(args: {
+  vendorId?: string;
+  limit?: number;
+}): Promise<{ stacks: StackProfile[] }> {
+  const params = new URLSearchParams();
+  if (args.vendorId) params.set("vendorId", args.vendorId);
+  if (args.limit) params.set("limit", String(args.limit));
+  const qs = params.toString();
+  return request<{ stacks: StackProfile[] }>(
+    `/api/stacks/similar${qs ? `?${qs}` : ""}`
+  );
 }
 
 export async function compareVendors(
