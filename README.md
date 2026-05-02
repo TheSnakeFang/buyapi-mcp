@@ -7,7 +7,7 @@
 [![smithery badge](https://smithery.ai/badge/buyapi/buyapi)](https://smithery.ai/servers/buyapi/buyapi)
 [![MIT licensed](https://img.shields.io/npm/l/buyapi)](./LICENSE)
 
-BuyAPI helps AI agents and developers make informed infrastructure decisions. When your agent needs to pick a database, auth provider, hosting platform, payment processor, or email provider, BuyAPI provides current, structured, neutral vendor comparisons - not training data defaults.
+BuyAPI helps AI agents and developers make informed infrastructure decisions. When your agent needs to pick a database, auth provider, hosting platform, payment processor, email provider, or UI component system, BuyAPI provides current, structured, neutral vendor comparisons - not training data defaults.
 
 ## Quick Start
 
@@ -175,6 +175,7 @@ Common launch-corpus IDs:
 /hosting/vercel
 /payments/stripe
 /email/resend
+/ui-components/shadcn-ui
 ```
 
 ## Available Tools
@@ -416,6 +417,7 @@ Common flags:
 | Hosting | Vercel, Netlify, Railway, Fly.io |
 | Payments | Stripe, LemonSqueezy, Paddle, RevenueCat |
 | Email | Resend, SendGrid, Postmark, Amazon SES |
+| UI Components | shadcn/ui |
 
 ## How It Works
 
@@ -428,7 +430,7 @@ The source is fully open so you can verify there's no prompt injection or hidden
 - All vendor data is publicly viewable at [buyapi.ai](https://buyapi.ai)
 - Every profile shows when it was last updated and data source
 - BuyAPI does not accept payment from vendors for ranking influence
-- Inaccurate-data reporting and vendor claiming are roadmap items, not live product flows yet.
+- Inaccurate-data reporting, suggested edits, reviews, and vendor-claim requests exist behind moderation; vendor self-service editing is not live.
 
 ## Troubleshooting
 
