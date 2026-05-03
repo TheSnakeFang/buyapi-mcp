@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   formatDecisionMatrix,
+  formatCostEstimates,
   formatSearchResults,
   formatVendorProfile,
   formatStackRecommendation,
@@ -9,6 +10,7 @@ import type {
   VendorSearchResult,
   VendorProfile,
   StackRecommendation,
+  VendorCostEstimate,
 } from "../lib/types.js";
 
 describe("formatSearchResults", () => {
@@ -326,5 +328,30 @@ describe("formatStackRecommendation", () => {
     expect(text).toContain("Alternatives Considered");
     expect(text).toContain("Switching Costs");
     expect(text).toContain("Supabase pricing");
+  });
+});
+
+describe("formatCostEstimates", () => {
+  it("prints assumptions behind deterministic estimates", () => {
+    const estimates: VendorCostEstimate[] = [
+      {
+        vendorId: "/email/ses",
+        vendorName: "Amazon SES",
+        category: "email",
+        monthlyUsd: 5,
+        display: "$5",
+        basis: "50,000 emails/month at $0.10 per 1,000 emails",
+        confidence: "medium",
+        assumptions: [
+          "Uses the explicit workload input: 50,000 emails/month at $0.10 per 1,000 emails.",
+        ],
+        unknowns: [],
+        sources: [],
+      },
+    ];
+
+    const text = formatCostEstimates(estimates);
+    expect(text).toContain("Assumptions:");
+    expect(text).toContain("50,000 emails/month");
   });
 });

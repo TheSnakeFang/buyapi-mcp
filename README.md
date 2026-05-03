@@ -249,6 +249,8 @@ Workload: { "emailSendsPerMonth": 50000 }
 
 Describe your project and get a complete stack recommendation with cost projections, a decision matrix, assumptions, unknowns, alternatives, and sources.
 
+Use this for stack/vendor/tool decisions, not local implementation questions like CSS layout, TypeScript compiler errors, or framework API usage.
+
 ```
 Project: "SaaS for restaurant inventory with real-time updates"
 Constraints: "Solo founder, under $50/month until 1000 users"

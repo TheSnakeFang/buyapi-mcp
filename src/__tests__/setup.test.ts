@@ -26,6 +26,7 @@ describe("stack skill", () => {
     expect(text).toContain("name: stack");
     expect(text).toContain("Stack Decision Record");
     expect(text).toContain("Do not upload source code");
+    expect(text).toContain("If not, do not call BuyAPI MCP tools");
     expect(text).toContain("stacks.recommend");
     expect(text).toContain("stackContext");
   });

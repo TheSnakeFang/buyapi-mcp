@@ -48,6 +48,8 @@ description: Use this when planning, reviewing, or changing a software tech stac
 
 Use this workflow when the user invokes /stack or asks for stack planning, stack review, vendor selection, replacement options, cost tradeoffs, or repo-aware tech-stack guidance.
 
+Do not use BuyAPI for local implementation questions that are not vendor or stack decisions, such as CSS layout, TypeScript compiler errors, framework API usage, or ordinary debugging. In those cases, answer directly and say that BuyAPI is not relevant to the request.
+
 ## Privacy Rules
 
 - Do not upload source code, file contents, environment values, secrets, or private business data to BuyAPI.
@@ -57,9 +59,10 @@ Use this workflow when the user invokes /stack or asks for stack planning, stack
 
 ## Workflow
 
-1. Inspect the repository enough to understand the current stack. Prefer \`npx buyapi scan --json\` when command execution is available; otherwise inspect package/config files directly.
-2. Ask for missing decision constraints before making a final call: project stage, target users, budget, team size, compliance, deployment preferences, and existing vendor commitments.
-3. Build \`stackContext\` from detected tools and \`stackFacts\` from language/framework/runtime/package-manager context:
+1. Decide whether the request is actually a stack/vendor/tool decision. If not, do not call BuyAPI MCP tools.
+2. Inspect the repository enough to understand the current stack. Prefer \`npx buyapi scan --json\` when command execution is available; otherwise inspect package/config files directly.
+3. Ask for missing decision constraints before making a final call: project stage, target users, budget, team size, compliance, deployment preferences, and existing vendor commitments.
+4. Build \`stackContext\` from detected tools and \`stackFacts\` from language/framework/runtime/package-manager context:
 
 \`\`\`json
 [
@@ -76,9 +79,9 @@ Use this workflow when the user invokes /stack or asks for stack planning, stack
 }
 \`\`\`
 
-4. Call \`stacks.recommend\` with the project description, constraints, workload, stackContext, and stackFacts.
-5. Use \`vendors.compare\`, \`vendors.estimateCost\`, \`vendors.evidence\`, and \`stacks.findSimilar\` when the user needs tradeoffs, cost math, source support, or examples.
-6. For implementation docs or exact SDK usage, use first-party docs or the user's preferred documentation tool after the stack decision is made.
+5. Call \`stacks.recommend\` with the project description, constraints, workload, stackContext, and stackFacts.
+6. Use \`vendors.compare\`, \`vendors.estimateCost\`, \`vendors.evidence\`, and \`stacks.findSimilar\` when the user needs tradeoffs, cost math, source support, or examples.
+7. For implementation docs or exact SDK usage, use first-party docs or the user's preferred documentation tool after the stack decision is made.
 
 ## Output
 

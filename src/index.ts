@@ -130,7 +130,7 @@ server.tool(
   "vendors.resolve",
   `Finds BuyAPI vendor IDs for a user question. Category is optional; provide it when known.
 
-Use this for vendor discovery before vendors.details, or when the user asks which provider in a category fits their constraints.
+Use this for vendor discovery before vendors.details, or when the user asks which provider in a category fits their constraints. Do not use this for local coding/debugging/docs questions unless they involve choosing a software vendor or tool.
 If the category is outside BuyAPI's corpus, the tool returns an explicit "not in corpus yet" result instead of inventing vendors.`,
   {
     query: z
@@ -307,7 +307,7 @@ server.tool(
   "stacks.recommend",
   `Recommends a complete stack from BuyAPI's corpus with a structured decision matrix, cost estimate, assumptions, unknowns, alternatives, and sources.
 
-Use this when the user is starting a project or asks for a complete stack choice. Do not call vendors.resolve first; this tool handles retrieval and ranking.`,
+Use this when the user is starting a project or asks for a complete stack choice. Do not use this for local coding/debugging/docs questions that do not involve software or vendor selection. Do not call vendors.resolve first; this tool handles retrieval and ranking.`,
   {
     projectDescription: z.string().describe("What the user is building"),
     constraints: z
