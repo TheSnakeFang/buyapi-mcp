@@ -269,6 +269,52 @@ export interface DecisionMatrixRow {
   sources: VendorClaim[];
 }
 
+export interface StackDecisionRecord {
+  context: {
+    projectDescription: string;
+    constraints: string | null;
+    currentStack: StackContextInput[];
+    stackFacts: {
+      label: string;
+      values: string[];
+    }[];
+    workload: {
+      label: string;
+      value: string;
+    }[];
+  };
+  recommendation: {
+    summary: string;
+    choices: {
+      layer: string;
+      vendor: string;
+      vendorName: string;
+      reason: string;
+      confidence: "high" | "medium" | "low";
+      fit: "strong" | "reasonable" | "weak";
+      tradeoffs: string[];
+      estimatedMonthlyCost: string;
+      sourceCount: number;
+    }[];
+  };
+  alternativesConsidered: {
+    layer: string;
+    condition: string;
+    vendor: string;
+    vendorName: string;
+    reason: string;
+  }[];
+  switchingCosts: {
+    layer: string;
+    note: string;
+  }[];
+  evidence: VendorClaim[];
+  assumptions: string[];
+  unknowns: string[];
+  nextSteps: string[];
+  generatedAt: string;
+}
+
 export interface StackRecommendation {
   stack: Record<
     string,
@@ -296,6 +342,7 @@ export interface StackRecommendation {
     swap: Record<string, { vendor: string; reason: string }>;
   } | null;
   sources?: VendorClaim[];
+  decisionRecord?: StackDecisionRecord;
   generatedAt?: string;
 }
 

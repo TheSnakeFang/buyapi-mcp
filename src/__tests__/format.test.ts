@@ -251,4 +251,80 @@ describe("formatStackRecommendation", () => {
     expect(text).toContain("/database/neon");
     expect(text).not.toContain("Alternative");
   });
+
+  it("formats stack decision records when present", () => {
+    const rec: StackRecommendation = {
+      stack: {
+        database: { vendor: "/database/supabase", reason: "Great free tier" },
+      },
+      costEstimate: {
+        at100Users: "$0",
+        at1kUsers: "$25",
+        at10kUsers: "$75",
+        firstPaidTrigger: "DB exceeds 500MB",
+      },
+      alternativeStack: null,
+      decisionRecord: {
+        context: {
+          projectDescription: "B2B SaaS",
+          constraints: "Keep costs low",
+          currentStack: [{ vendorSlug: "/database/supabase", category: "database" }],
+          stackFacts: [{ label: "frameworks", values: ["Next.js"] }],
+          workload: [],
+        },
+        recommendation: {
+          summary: "BuyAPI recommends one stack layer with sourced tradeoffs.",
+          choices: [
+            {
+              layer: "database",
+              vendor: "/database/supabase",
+              vendorName: "Supabase",
+              reason: "Good Postgres fit.",
+              confidence: "medium",
+              fit: "strong",
+              tradeoffs: [],
+              estimatedMonthlyCost: "$25",
+              sourceCount: 1,
+            },
+          ],
+        },
+        alternativesConsidered: [
+          {
+            layer: "database",
+            condition: "You prefer branchable Postgres",
+            vendor: "/database/neon",
+            vendorName: "Neon",
+            reason: "Better preview workflow.",
+          },
+        ],
+        switchingCosts: [
+          {
+            layer: "database",
+            note: "Schema design and migration tooling become coupled to this choice.",
+          },
+        ],
+        evidence: [
+          {
+            path: "pricing",
+            summary: "Supabase pricing",
+            sourceUrl: "https://supabase.com/pricing",
+            observedAt: "2026-04-21",
+            staleAfter: "2026-07-20",
+            confidence: "medium",
+          },
+        ],
+        assumptions: ["No team seat count was provided."],
+        unknowns: ["No exact database size was provided."],
+        nextSteps: ["Verify pricing before creating production accounts."],
+        generatedAt: "2026-04-21T12:00:00.000Z",
+      },
+    };
+
+    const text = formatStackRecommendation(rec);
+    expect(text).toContain("Stack Decision Record");
+    expect(text).toContain("Supabase");
+    expect(text).toContain("Alternatives Considered");
+    expect(text).toContain("Switching Costs");
+    expect(text).toContain("Supabase pricing");
+  });
 });

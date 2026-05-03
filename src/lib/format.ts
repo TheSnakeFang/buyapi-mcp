@@ -103,6 +103,10 @@ export function formatVendorProfile(vendor: VendorProfile): string {
 }
 
 export function formatStackRecommendation(rec: StackRecommendation): string {
+  if (rec.decisionRecord) {
+    return formatStackDecisionRecord(rec);
+  }
+
   const lines: string[] = ["# Recommended Stack\n"];
 
   for (const [layer, choice] of Object.entries(rec.stack)) {
@@ -138,6 +142,77 @@ export function formatStackRecommendation(rec: StackRecommendation): string {
   if (rec.unknowns?.length) {
     lines.push("\n## Unknowns");
     lines.push(...rec.unknowns.map((unknown) => `- ${unknown}`));
+  }
+
+  return lines.join("\n");
+}
+
+function formatStackDecisionRecord(rec: StackRecommendation): string {
+  const record = rec.decisionRecord!;
+  const lines = ["# Stack Decision Record", "", record.recommendation.summary, ""];
+
+  lines.push("## Recommendation");
+  for (const choice of record.recommendation.choices) {
+    lines.push(
+      `- ${choice.layer}: ${choice.vendorName} (${choice.fit}, ${choice.confidence} confidence) - ${choice.reason} Cost: ${choice.estimatedMonthlyCost}`
+    );
+  }
+
+  const cost = rec.costEstimate;
+  lines.push("");
+  lines.push("## Cost");
+  lines.push(`- 100 users: ${cost.at100Users}`);
+  lines.push(`- 1K users: ${cost.at1kUsers}`);
+  lines.push(`- 10K users: ${cost.at10kUsers}`);
+  if (cost.monthlyUsd !== undefined && cost.monthlyUsd !== null) {
+    lines.push(`- Workload estimate: $${cost.monthlyUsd}/month`);
+  }
+  lines.push(`- First paid trigger: ${cost.firstPaidTrigger}`);
+
+  if (record.alternativesConsidered.length > 0) {
+    lines.push("");
+    lines.push("## Alternatives Considered");
+    lines.push(
+      ...record.alternativesConsidered
+        .slice(0, 8)
+        .map(
+          (alternative) =>
+            `- ${alternative.layer}: ${alternative.vendorName} if ${alternative.condition.toLowerCase()}`
+        )
+    );
+  }
+
+  if (record.switchingCosts.length > 0) {
+    lines.push("");
+    lines.push("## Switching Costs");
+    lines.push(
+      ...record.switchingCosts.map((costItem) => `- ${costItem.layer}: ${costItem.note}`)
+    );
+  }
+
+  if (record.assumptions.length > 0) {
+    lines.push("");
+    lines.push("## Assumptions");
+    lines.push(...record.assumptions.map((assumption) => `- ${assumption}`));
+  }
+
+  if (record.unknowns.length > 0) {
+    lines.push("");
+    lines.push("## Unknowns");
+    lines.push(...record.unknowns.map((unknown) => `- ${unknown}`));
+  }
+
+  if (record.evidence.length > 0) {
+    lines.push("");
+    lines.push("## Evidence");
+    lines.push(
+      ...record.evidence
+        .slice(0, 10)
+        .map(
+          (source) =>
+            `- ${source.summary} (${source.confidence}, observed ${source.observedAt}): ${source.sourceUrl}`
+        )
+    );
   }
 
   return lines.join("\n");
