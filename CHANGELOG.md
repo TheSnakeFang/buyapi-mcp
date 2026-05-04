@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.1] - 2026-05-04
+
+### Added
+
+- MCP tools now declare output schemas so clients can validate structured responses.
+
 ## [0.7.0] - 2026-05-01
 
 ### Added
