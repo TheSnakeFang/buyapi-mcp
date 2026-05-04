@@ -1,10 +1,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline/promises";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import {
   compareVendors,
@@ -52,11 +53,6 @@ import {
   formatVendorProfile,
 } from "./lib/format.js";
 import { PACKAGE_NAME, PACKAGE_VERSION } from "./lib/version.js";
-
-const server = new McpServer({
-  name: PACKAGE_NAME,
-  version: PACKAGE_VERSION,
-});
 
 const workloadSchema = z
   .object({
@@ -130,219 +126,295 @@ const readOnlyTool = {
   openWorldHint: true,
 };
 
-server.tool(
-  "vendors.resolve",
-  `Finds BuyAPI vendor IDs for a user question. Category is optional; provide it when known.
+const jsonArraySchema = z.array(z.unknown());
+
+const unknownCorpusOutputSchema = {
+  kind: z.string().optional(),
+  query: z.string().optional(),
+  message: z.string().optional(),
+  suggestedNextSteps: z.array(z.string()).optional(),
+  availableCategories: z.array(z.string()).optional(),
+};
+
+const resolveOutputSchema = z.object({
+  results: jsonArraySchema.optional(),
+  ...unknownCorpusOutputSchema,
+}).passthrough();
+
+const detailsOutputSchema = z.object({
+  sources: jsonArraySchema.optional(),
+}).passthrough();
+
+const evidenceOutputSchema = z.object({
+  evidence: jsonArraySchema,
+}).passthrough();
+
+const similarStacksOutputSchema = z.object({
+  stacks: jsonArraySchema,
+}).passthrough();
+
+const compareOutputSchema = z.object({
+  decisionMatrix: jsonArraySchema.optional(),
+  ...unknownCorpusOutputSchema,
+}).passthrough();
+
+const estimateCostOutputSchema = z.object({
+  estimates: jsonArraySchema.optional(),
+  ...unknownCorpusOutputSchema,
+}).passthrough();
+
+const recommendOutputSchema = z.object({
+  stack: z.record(z.string(), z.unknown()).optional(),
+  decisionMatrix: jsonArraySchema.optional(),
+  costEstimate: z.record(z.string(), z.unknown()).optional(),
+  alternativesConsidered: jsonArraySchema.optional(),
+  unknowns: z.array(z.string()).optional(),
+  sources: jsonArraySchema.optional(),
+}).passthrough();
+
+export function createMcpServer() {
+  const server = new McpServer({
+    name: PACKAGE_NAME,
+    version: PACKAGE_VERSION,
+  });
+
+  server.registerTool(
+    "vendors.resolve",
+    {
+      description: `Finds BuyAPI vendor IDs for a user question. Category is optional; provide it when known.
 
 Use this for vendor discovery before vendors.details, or when the user asks which provider in a category fits their constraints. Do not use this for local coding/debugging/docs questions unless they involve choosing a software vendor or tool.
 If the category is outside BuyAPI's corpus, the tool returns an explicit "not in corpus yet" result instead of inventing vendors.`,
-  {
-    query: z
-      .string()
-      .describe("The user's question or task context for relevance ranking"),
-    category: z
-      .string()
-      .optional()
-      .describe("Optional category: database, auth, hosting, payments, email"),
-  },
-  readOnlyTool,
-  async ({ query, category }) => {
-    try {
-      const data = await searchVendors(query, category);
-      return {
-        structuredContent: structured(data.unknown ?? { results: data.results }),
-        content: [
-          {
-            type: "text",
-            text: data.unknown
-              ? formatUnknown(data.unknown)
-              : formatSearchResults(data.results),
-          },
-        ],
-      };
-    } catch (error) {
-      return errorContent("Error searching vendors", error);
+      inputSchema: {
+        query: z
+          .string()
+          .describe("The user's question or task context for relevance ranking"),
+        category: z
+          .string()
+          .optional()
+          .describe("Optional category: database, auth, hosting, payments, email"),
+      },
+      outputSchema: resolveOutputSchema,
+      annotations: readOnlyTool,
+    },
+    async ({ query, category }) => {
+      try {
+        const data = await searchVendors(query, category);
+        return {
+          structuredContent: structured(data.unknown ?? { results: data.results }),
+          content: [
+            {
+              type: "text",
+              text: data.unknown
+                ? formatUnknown(data.unknown)
+                : formatSearchResults(data.results),
+            },
+          ],
+        };
+      } catch (error) {
+        return errorContent("Error searching vendors", error);
+      }
     }
-  }
-);
+  );
 
-server.tool(
-  "vendors.details",
-  `Retrieves detailed vendor information including pricing, features, limits, gotchas, comparisons, and source provenance.
+  server.registerTool(
+    "vendors.details",
+    {
+      description: `Retrieves detailed vendor information including pricing, features, limits, gotchas, comparisons, and source provenance.
 
 Call vendors.resolve first unless the user already provided a BuyAPI vendor ID like /database/supabase.`,
-  {
-    vendorId: z.string().describe("BuyAPI vendor ID, e.g. /database/supabase"),
-    query: z
-      .string()
-      .optional()
-      .describe("Specific question to focus the response on"),
-  },
-  readOnlyTool,
-  async ({ vendorId, query }) => {
-    try {
-      const vendor = await getVendorDetails(vendorId, query);
-      return {
-        structuredContent: structured(vendor),
-        content: [{ type: "text", text: formatVendorProfile(vendor) }],
-      };
-    } catch (error) {
-      return errorContent("Error fetching vendor details", error);
+      inputSchema: {
+        vendorId: z.string().describe("BuyAPI vendor ID, e.g. /database/supabase"),
+        query: z
+          .string()
+          .optional()
+          .describe("Specific question to focus the response on"),
+      },
+      outputSchema: detailsOutputSchema,
+      annotations: readOnlyTool,
+    },
+    async ({ vendorId, query }) => {
+      try {
+        const vendor = await getVendorDetails(vendorId, query);
+        return {
+          structuredContent: structured(vendor),
+          content: [{ type: "text", text: formatVendorProfile(vendor) }],
+        };
+      } catch (error) {
+        return errorContent("Error fetching vendor details", error);
+      }
     }
-  }
-);
+  );
 
-server.tool(
-  "vendors.evidence",
-  `Returns recent BuyAPI evidence rows for a vendor, category, stack, or comparison.
+  server.registerTool(
+    "vendors.evidence",
+    {
+      description: `Returns recent BuyAPI evidence rows for a vendor, category, stack, or comparison.
 
 Use this when the user asks why BuyAPI believes something, what sources support a vendor page, or what recent human/source signals exist.`,
-  {
-    subjectType: z
-      .enum(["vendor", "category", "stack", "comparison"])
-      .describe("Evidence subject type"),
-    subjectId: z
-      .string()
-      .describe("Subject ID, e.g. /database/supabase or database"),
-    limit: z.number().optional().describe("Maximum rows to return"),
-  },
-  readOnlyTool,
-  async ({ subjectType, subjectId, limit }) => {
-    try {
-      const result = await getEvidence({ subjectType, subjectId, limit });
-      return {
-        structuredContent: structured(result),
-        content: [{ type: "text", text: formatEvidenceRows(result.evidence) }],
-      };
-    } catch (error) {
-      return errorContent("Error fetching evidence", error);
+      inputSchema: {
+        subjectType: z
+          .enum(["vendor", "category", "stack", "comparison"])
+          .describe("Evidence subject type"),
+        subjectId: z
+          .string()
+          .describe("Subject ID, e.g. /database/supabase or database"),
+        limit: z.number().optional().describe("Maximum rows to return"),
+      },
+      outputSchema: evidenceOutputSchema,
+      annotations: readOnlyTool,
+    },
+    async ({ subjectType, subjectId, limit }) => {
+      try {
+        const result = await getEvidence({ subjectType, subjectId, limit });
+        return {
+          structuredContent: structured(result),
+          content: [{ type: "text", text: formatEvidenceRows(result.evidence) }],
+        };
+      } catch (error) {
+        return errorContent("Error fetching evidence", error);
+      }
     }
-  }
-);
+  );
 
-server.tool(
-  "stacks.findSimilar",
-  `Finds public stack profiles related to a vendor or recent curated stack examples.
+  server.registerTool(
+    "stacks.findSimilar",
+    {
+      description: `Finds public stack profiles related to a vendor or recent curated stack examples.
 
 Use this when the user asks who uses a tool, what similar builders use, or wants examples of real stack combinations.`,
-  {
-    vendorId: z
-      .string()
-      .optional()
-      .describe("Optional BuyAPI vendor ID, e.g. /database/convex"),
-    limit: z.number().optional().describe("Maximum stacks to return"),
-  },
-  readOnlyTool,
-  async ({ vendorId, limit }) => {
-    try {
-      const result = await findSimilarStacks({ vendorId, limit });
-      return {
-        structuredContent: structured(result),
-        content: [{ type: "text", text: formatStackRows(result.stacks) }],
-      };
-    } catch (error) {
-      return errorContent("Error finding similar stacks", error);
+      inputSchema: {
+        vendorId: z
+          .string()
+          .optional()
+          .describe("Optional BuyAPI vendor ID, e.g. /database/convex"),
+        limit: z.number().optional().describe("Maximum stacks to return"),
+      },
+      outputSchema: similarStacksOutputSchema,
+      annotations: readOnlyTool,
+    },
+    async ({ vendorId, limit }) => {
+      try {
+        const result = await findSimilarStacks({ vendorId, limit });
+        return {
+          structuredContent: structured(result),
+          content: [{ type: "text", text: formatStackRows(result.stacks) }],
+        };
+      } catch (error) {
+        return errorContent("Error finding similar stacks", error);
+      }
     }
-  }
-);
+  );
 
-server.tool(
-  "vendors.compare",
-  `Compares two or more BuyAPI vendors for a specific workload or decision.
+  server.registerTool(
+    "vendors.compare",
+    {
+      description: `Compares two or more BuyAPI vendors for a specific workload or decision.
 
 Use this for head-to-head questions like "Convex vs Supabase vs Neon for a realtime SaaS" or "Stripe vs Paddle for a marketplace".`,
-  {
-    vendorIds: z
-      .array(z.string())
-      .min(2)
-      .describe("BuyAPI vendor IDs, e.g. ['/database/convex', '/database/neon']"),
-    query: z.string().describe("The user's decision context"),
-    workload: workloadSchema.optional(),
-  },
-  readOnlyTool,
-  async ({ vendorIds, query, workload }) => {
-    try {
-      const result = await compareVendors(vendorIds, query, workload);
-      return {
-        structuredContent: structured(result),
-        content: [
-          { type: "text", text: formatDecisionMatrix(result.decisionMatrix) },
-        ],
-      };
-    } catch (error) {
-      return errorContent("Error comparing vendors", error);
+      inputSchema: {
+        vendorIds: z
+          .array(z.string())
+          .min(2)
+          .describe("BuyAPI vendor IDs, e.g. ['/database/convex', '/database/neon']"),
+        query: z.string().describe("The user's decision context"),
+        workload: workloadSchema.optional(),
+      },
+      outputSchema: compareOutputSchema,
+      annotations: readOnlyTool,
+    },
+    async ({ vendorIds, query, workload }) => {
+      try {
+        const result = await compareVendors(vendorIds, query, workload);
+        return {
+          structuredContent: structured(result),
+          content: [
+            { type: "text", text: formatDecisionMatrix(result.decisionMatrix) },
+          ],
+        };
+      } catch (error) {
+        return errorContent("Error comparing vendors", error);
+      }
     }
-  }
-);
+  );
 
-server.tool(
-  "vendors.estimateCost",
-  `Produces deterministic monthly cost estimates from BuyAPI pricing data and explicit workload inputs.
+  server.registerTool(
+    "vendors.estimateCost",
+    {
+      description: `Produces deterministic monthly cost estimates from BuyAPI pricing data and explicit workload inputs.
 
 Use this when the user asks for cost math. Missing workload fields are returned as assumptions or unknowns instead of being hallucinated.`,
-  {
-    vendorIds: z
-      .array(z.string())
-      .optional()
-      .describe("Optional vendor IDs to estimate directly"),
-    category: z
-      .string()
-      .optional()
-      .describe("Optional category to estimate across the current corpus"),
-    workload: workloadSchema,
-  },
-  readOnlyTool,
-  async ({ vendorIds, category, workload }) => {
-    try {
-      const result = await estimateCosts({ vendorIds, category, workload });
-      return {
-        structuredContent: structured(result),
-        content: [
-          { type: "text", text: formatCostEstimates(result.estimates) },
-        ],
-      };
-    } catch (error) {
-      return errorContent("Error estimating cost", error);
+      inputSchema: {
+        vendorIds: z
+          .array(z.string())
+          .optional()
+          .describe("Optional vendor IDs to estimate directly"),
+        category: z
+          .string()
+          .optional()
+          .describe("Optional category to estimate across the current corpus"),
+        workload: workloadSchema,
+      },
+      outputSchema: estimateCostOutputSchema,
+      annotations: readOnlyTool,
+    },
+    async ({ vendorIds, category, workload }) => {
+      try {
+        const result = await estimateCosts({ vendorIds, category, workload });
+        return {
+          structuredContent: structured(result),
+          content: [
+            { type: "text", text: formatCostEstimates(result.estimates) },
+          ],
+        };
+      } catch (error) {
+        return errorContent("Error estimating cost", error);
+      }
     }
-  }
-);
+  );
 
-server.tool(
-  "stacks.recommend",
-  `Recommends a complete stack from BuyAPI's corpus with a structured decision matrix, cost estimate, assumptions, unknowns, alternatives, and sources.
+  server.registerTool(
+    "stacks.recommend",
+    {
+      description: `Recommends a complete stack from BuyAPI's corpus with a structured decision matrix, cost estimate, assumptions, unknowns, alternatives, and sources.
 
 Use this when the user is starting a project or asks for a complete stack choice. Do not use this for local coding/debugging/docs questions that do not involve software or vendor selection. Do not call vendors.resolve first; this tool handles retrieval and ranking.`,
-  {
-    projectDescription: z.string().describe("What the user is building"),
-    constraints: z
-      .string()
-      .optional()
-      .describe("Budget, scale, existing tools, team size, compliance needs"),
-    workload: workloadSchema.optional(),
-    stackContext: stackContextSchema,
-    stackFacts: stackFactsSchema,
-  },
-  readOnlyTool,
-  async ({ projectDescription, constraints, workload, stackContext, stackFacts }) => {
-    try {
-      const recommendation = await recommendStack(
-        projectDescription,
-        constraints,
-        workload,
-        stackContext,
-        stackFacts
-      );
-      return {
-        structuredContent: structured(recommendation),
-        content: [
-          { type: "text", text: formatStackRecommendation(recommendation) },
-        ],
-      };
-    } catch (error) {
-      return errorContent("Error generating recommendation", error);
+      inputSchema: {
+        projectDescription: z.string().describe("What the user is building"),
+        constraints: z
+          .string()
+          .optional()
+          .describe("Budget, scale, existing tools, team size, compliance needs"),
+        workload: workloadSchema.optional(),
+        stackContext: stackContextSchema,
+        stackFacts: stackFactsSchema,
+      },
+      outputSchema: recommendOutputSchema,
+      annotations: readOnlyTool,
+    },
+    async ({ projectDescription, constraints, workload, stackContext, stackFacts }) => {
+      try {
+        const recommendation = await recommendStack(
+          projectDescription,
+          constraints,
+          workload,
+          stackContext,
+          stackFacts
+        );
+        return {
+          structuredContent: structured(recommendation),
+          content: [
+            { type: "text", text: formatStackRecommendation(recommendation) },
+          ],
+        };
+      } catch (error) {
+        return errorContent("Error generating recommendation", error);
+      }
     }
-  }
-);
+  );
+
+  return server;
+}
 
 async function main() {
   const command = parseCliCommand(process.argv.slice(2));
@@ -352,6 +424,7 @@ async function main() {
   }
 
   const transport = new StdioServerTransport();
+  const server = createMcpServer();
   await server.connect(transport);
   console.error("BuyAPI MCP server running on stdio");
 }
@@ -933,7 +1006,22 @@ Path: ${stackSkillTargetPath(client)}
 ${stackSkillContent()}`;
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? `Error: ${error.message}` : String(error));
-  process.exit(1);
-});
+function isDirectRun() {
+  if (!process.argv[1]) return false;
+  try {
+    return (
+      realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
+    );
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectRun()) {
+  main().catch((error) => {
+    console.error(
+      error instanceof Error ? `Error: ${error.message}` : String(error)
+    );
+    process.exit(1);
+  });
+}
