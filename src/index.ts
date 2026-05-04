@@ -1,5 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { z } from "zod";
 import {
@@ -433,6 +437,10 @@ async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
       {
         const key = process.env.BUYAPI_API_KEY || readStoredApiKey();
         if (!key) {
+          if (command.quiet) {
+            process.exitCode = 1;
+            return;
+          }
           const result = {
             authenticated: false,
             source: null,
@@ -446,6 +454,10 @@ async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
           return;
         }
         const status = await getAccountStatus();
+        if (command.quiet) {
+          process.exitCode = status.authenticated ? 0 : 1;
+          return;
+        }
         const result = {
           authenticated: status.authenticated,
           keyPrefix: status.keyPrefix,
@@ -460,9 +472,16 @@ async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
       return;
     case "scan":
       {
-        const scan = scanStack(command.root ?? process.cwd(), {
-          includeAll: command.all,
-        });
+        const scanTarget = resolveScanTarget(command.root);
+        let scan: StackScanResult;
+        try {
+          scan = scanStack(scanTarget.root, {
+            includeAll: command.all,
+            repoUrl: scanTarget.repoUrl,
+          });
+        } finally {
+          scanTarget.cleanup?.();
+        }
         if (command.dryRun || (command.json && !command.sync)) {
           console.log(
             command.json
@@ -476,18 +495,21 @@ async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
         }
 
         if (!command.json) {
-          console.log(formatStackScan(scan, { verbose: command.verbose }));
+          console.log(formatStackScan(scan, {
+            verbose: command.verbose,
+            syncing: command.sync,
+          }));
         }
 
-        if (!hasSyncableScanData(scan)) {
+        if (!hasSyncableScanData(scan, command.allowEmpty)) {
           if (command.json) {
             throw new Error(
-              "No stack data to sync. Run from the project folder that contains your app manifest or config."
+              "No known tools to sync. Run from the project folder that contains vendor SDKs/config, or pass --allow-empty."
             );
           }
           if (command.sync && !command.json) {
             console.log(
-              "Nothing to sync yet. Run from the project folder that contains your app manifest or config."
+              "No known tools were detected, so no stack was saved. Pass --allow-empty if you intentionally want an empty stack."
             );
           }
           return;
@@ -517,6 +539,7 @@ async function runCliCommand(command: ReturnType<typeof parseCliCommand>) {
         }
 
         await ensureApiKeyForSync(command.sync);
+        if (!command.json) printSyncPrivacyNotice(scan);
         await syncAndPrintStackScan(command, scan);
       }
       return;
@@ -709,12 +732,15 @@ function printSetupModeSummary(mode: "remote" | "local") {
   console.log("You do not need to run that server manually.");
 }
 
-function hasSyncableScanData(scan: StackScanResult) {
-  return (
-    scan.tools.length > 0 ||
-    scan.unknownDependencies.length > 0 ||
-    Object.values(scan.context).some((values) => values.length > 0)
-  );
+function hasSyncableScanData(scan: StackScanResult, allowEmpty: boolean) {
+  if (allowEmpty) {
+    return (
+      scan.tools.length > 0 ||
+      scan.unknownDependencies.length > 0 ||
+      Object.values(scan.context).some((values) => values.length > 0)
+    );
+  }
+  return scan.tools.length > 0;
 }
 
 function canPrompt() {
@@ -761,7 +787,9 @@ async function syncAndPrintStackScan(
   console.log(
     command.json
       ? JSON.stringify(result, null, 2)
-      : `Stack ${result.updated ? "updated" : "saved"}: ${result.url}${
+      : `Stack ${result.updated ? "updated" : "saved"}: ${result.url}\nSynced ${scan.tools.length} detected tool${scan.tools.length === 1 ? "" : "s"}${
+          scan.repoUrl ? ` from ${scan.repoUrl}` : ""
+        }.${
           result.candidateCount
             ? `\nQueued ${result.candidateCount} unknown package candidates for review.`
             : ""
@@ -769,7 +797,59 @@ async function syncAndPrintStackScan(
   );
 }
 
+function printSyncPrivacyNotice(scan: StackScanResult) {
+  console.log("");
+  console.log(
+    "Sync uploads the stack name, detected tools, derived stack context, file names checked, and package names queued for review."
+  );
+  console.log("Source code and environment values are not uploaded.");
+  if (scan.tools.length === 0) {
+    console.log("No known tools were detected in this scan.");
+  }
+  console.log("");
+}
+
+function resolveScanTarget(rootArg: string | undefined): {
+  root: string;
+  repoUrl?: string;
+  cleanup?: () => void;
+} {
+  if (!rootArg) return { root: process.cwd() };
+  const repoUrl = normalizeGithubRepoUrl(rootArg);
+  if (!repoUrl) return { root: rootArg };
+
+  const target = mkdtempSync(join(tmpdir(), "buyapi-scan-repo-"));
+  execFileSync("git", ["clone", "--depth", "1", repoUrl, target], {
+    stdio: "ignore",
+  });
+  return {
+    root: target,
+    repoUrl,
+    cleanup: () => rmSync(target, { recursive: true, force: true }),
+  };
+}
+
+function normalizeGithubRepoUrl(value: string): string | null {
+  const httpsMatch = value.match(/^https:\/\/github\.com\/([^/]+)\/([^/#?]+?)(?:\.git)?(?:[/?#].*)?$/i);
+  if (httpsMatch) {
+    return `https://github.com/${httpsMatch[1]}/${httpsMatch[2].replace(/\.git$/i, "")}.git`;
+  }
+  const sshMatch = value.match(/^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/i);
+  if (sshMatch) {
+    return `https://github.com/${sshMatch[1]}/${sshMatch[2].replace(/\.git$/i, "")}.git`;
+  }
+  return null;
+}
+
 function inferProjectName(root: string) {
+  const repoUrl = normalizeGithubRepoUrl(root);
+  if (repoUrl) {
+    return repoUrl
+      .split("/")
+      .filter(Boolean)
+      .at(-1)
+      ?.replace(/\.git$/i, "") || "Untitled stack";
+  }
   return root.split(/[\\/]/).filter(Boolean).at(-1) || "Untitled stack";
 }
 

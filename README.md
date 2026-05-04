@@ -97,10 +97,18 @@ whether to save the private stack when the terminal is interactive:
 npx buyapi scan
 ```
 
-Run it from the app or package folder that contains project signals such as
-`package.json`, a lockfile, framework config, `convex/`, `prisma/`, or source
-imports. If no signals are found, the CLI prints wrong-folder guidance instead
-of silently returning an empty stack.
+Run it from the app, package, or monorepo root that contains project signals
+such as `package.json`, a lockfile, framework config, `convex/`, `prisma/`,
+Python manifests, or source imports. You can also point it at a public GitHub
+repo URL:
+
+```bash
+npx buyapi scan https://github.com/owner/repo
+```
+
+If no project signals are found, the CLI prints wrong-folder guidance instead
+of silently returning an empty stack. Sync also skips stacks with zero known
+BuyAPI tools unless you pass `--allow-empty`.
 
 Use `--verbose` to see evidence and unknown package candidates found in
 `package.json`:
@@ -117,12 +125,13 @@ npx buyapi login
 npx buyapi scan --sync --yes
 ```
 
-Detection uses BuyAPI's own registry of manifest, marker-file, env-example,
-config-content, import, and framework signals. Unknown top-level packages are
-kept as candidates so the public tool register can learn about new AI-native
-tools without copying third-party detection tables.
+Detection uses BuyAPI's own registry of manifest, marker-file, env-key,
+config-content, import, framework, and language signals. Unknown runtime
+packages are kept as candidates so the public tool register can learn about new
+AI-native tools without copying third-party detection tables. Routine dev/build
+tooling is filtered out before it reaches the review queue.
 
-`buyapi login` opens the browser, signs in through the dashboard, creates a CLI API key, and stores it locally. You can still pass an existing key with `buyapi login ba_live_...` or use `BUYAPI_API_KEY` in CI. Sync uploads known detected tools plus unknown top-level package names, versions, and evidence so BuyAPI can review emerging tools. It does not upload source code, source file contents, or environment values.
+`buyapi login` opens the browser, signs in through the dashboard, creates a CLI API key, and stores it locally. You can still pass an existing key with `buyapi login ba_live_...` or use `BUYAPI_API_KEY` in CI. `buyapi whoami --quiet` exits 0 when a key is active and 1 when it is not. Sync uploads known detected tools plus filtered unknown package names, versions, and evidence so BuyAPI can review emerging tools. It does not upload source code, source file contents, or environment values.
 
 `scan` is a human-facing CLI command, not an MCP tool. The MCP server should stay quiet on stdout because stdout carries the MCP protocol.
 
@@ -376,7 +385,9 @@ buyapi login                       # Browser login and local key storage
 buyapi login <api-key>             # Store an existing API key
 buyapi logout                      # Remove the stored API key
 buyapi whoami                      # Verify the active local key
+buyapi whoami --quiet              # Auth check for scripts
 buyapi scan [dir]                  # Scan locally, then optionally save stack
+buyapi scan https://github.com/x/y  # Scan a public GitHub repo
 buyapi scan --sync --yes           # Save detected tools without prompts
 buyapi search <query>              # Search vendors
 buyapi details <vendorId>          # Fetch one vendor profile
@@ -403,6 +414,8 @@ Common flags:
 --dry-run               Preview scan output without uploading
 --verbose               Include scanner evidence details
 --all                   Include lower-confidence supporting detections
+--allow-empty           Save even when no known tools were detected
+--force                 Alias for --allow-empty
 --yes                   Skip sync confirmation prompt
 --users <n>             Monthly active users
 --emails <n>            Email sends per month
@@ -425,7 +438,7 @@ Common flags:
 
 This MCP server is a thin TypeScript client that calls the BuyAPI backend API. It contains no vendor data; lightweight comparison and cost formatting mirrors the hosted endpoint while vendor intelligence is served from [buyapi.ai](https://buyapi.ai).
 
-The source is fully open so you can verify there's no prompt injection or hidden behavior. `scan` previews locally first and only uploads after explicit confirmation or `--sync`; `--dry-run` never uploads. Sync sends detected tool metadata and unknown package candidates for review, not source code or environment values.
+The source is fully open so you can verify there's no prompt injection or hidden behavior. `scan` previews locally first and only uploads after explicit confirmation or `--sync`; `--dry-run` never uploads. Sync sends detected tool metadata, derived stack context, checked file names, repo URL metadata when provided, and filtered unknown package candidates for review. It does not send source code or environment values.
 
 ## Data Transparency
 

@@ -30,6 +30,7 @@ export type StackScanContext = {
 
 export type StackScanResult = {
   root: string;
+  repoUrl?: string;
   tools: StackScanTool[];
   context: StackScanContext;
   unknownDependencies: StackScanUnknownDependency[];
@@ -63,6 +64,16 @@ const PACKAGE_RULES: Array<{
   { packages: ["@vercel/analytics", "@vercel/blob"], vendorSlug: "/hosting/vercel", category: "hosting" },
   { packages: ["posthog-js", "posthog-node"], vendorSlug: "/analytics/posthog", category: "analytics" },
   { packages: ["@sentry/nextjs", "@sentry/node"], vendorSlug: "/monitoring/sentry", category: "monitoring" },
+];
+
+const PYTHON_PACKAGE_RULES: Array<{
+  packages: string[];
+  vendorSlug: string;
+  category: string;
+}> = [
+  { packages: ["stripe"], vendorSlug: "/payments/stripe", category: "payments" },
+  { packages: ["sentry-sdk"], vendorSlug: "/monitoring/sentry", category: "monitoring" },
+  { packages: ["posthog"], vendorSlug: "/analytics/posthog", category: "analytics" },
 ];
 
 const FILE_RULES: Array<{
@@ -101,6 +112,12 @@ const CONFIG_RULES: Array<{
     ],
   },
   {
+    path: "next.config.mjs",
+    patterns: [
+      { pattern: /withSentryConfig/i, vendorSlug: "/monitoring/sentry", category: "monitoring", label: "next.config.mjs:withSentryConfig" },
+    ],
+  },
+  {
     path: "wrangler.toml",
     patterns: [
       { pattern: /\bname\s*=/i, vendorSlug: "/hosting/cloudflare-workers", category: "hosting", label: "wrangler.toml" },
@@ -123,17 +140,20 @@ const IMPORT_RULES: Array<{
 
 export function scanStack(
   root = process.cwd(),
-  options: { includeAll?: boolean } = {}
+  options: { includeAll?: boolean; repoUrl?: string } = {}
 ): StackScanResult {
   const filesChecked: string[] = [];
   const warnings: string[] = [];
   const detected = new Map<string, StackScanTool>();
   const context = emptyContext();
-  const unknownDependencies: StackScanUnknownDependency[] = [];
+  const unknownDependencies = new Map<string, StackScanUnknownDependency>();
+  const manifestDirs = collectManifestDirs(root, warnings);
 
-  const packageJsonPath = join(root, "package.json");
-  if (existsSync(packageJsonPath)) {
-    filesChecked.push("package.json");
+  for (const manifestDir of manifestDirs) {
+    const packageJsonPath = join(root, manifestDir, "package.json");
+    if (!existsSync(packageJsonPath)) continue;
+    const packageJsonLabel = scopedPath(manifestDir, "package.json");
+    filesChecked.push(packageJsonLabel);
     try {
       const pkg = JSON.parse(readFileSync(packageJsonPath, "utf8"));
       const dependencyGroups = readDependencyGroups(pkg);
@@ -168,63 +188,78 @@ export function scanStack(
       for (const group of dependencyGroups) {
         for (const [packageName, version] of Object.entries(group.dependencies)) {
           if (matchedPackages.has(packageName)) continue;
-          unknownDependencies.push({
+          if (!shouldQueueUnknownDependency(packageName, group.type)) continue;
+          upsertUnknownDependency(unknownDependencies, {
             packageName,
             version,
             dependencyType: group.type,
-            evidence: [`package.json:${group.type}:${packageName}`],
+            evidence: [`${packageJsonLabel}:${group.type}:${packageName}`],
           });
         }
       }
     } catch (error) {
       warnings.push(
-        `Could not parse package.json: ${error instanceof Error ? error.message : String(error)}`
+        `Could not parse ${packageJsonLabel}: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
 
-  for (const file of [
-    "pnpm-lock.yaml",
-    "package-lock.json",
-    "yarn.lock",
-    "bun.lockb",
-    ".env.example",
-    "next.config.ts",
-    "next.config.js",
-  ]) {
-    if (existsSync(join(root, file))) {
-      filesChecked.push(file);
-      addPackageManagerContext(file, context);
+  for (const manifestDir of manifestDirs) {
+    for (const file of [
+      "pnpm-lock.yaml",
+      "package-lock.json",
+      "yarn.lock",
+      "bun.lockb",
+      "bun.lock",
+      "uv.lock",
+      "poetry.lock",
+      "Pipfile.lock",
+      "next.config.ts",
+      "next.config.js",
+      "next.config.mjs",
+      "tailwind.config.ts",
+      "tailwind.config.js",
+      "components.json",
+    ]) {
+      if (existsSync(join(root, manifestDir, file))) {
+        filesChecked.push(scopedPath(manifestDir, file));
+        addPackageManagerContext(file, context);
+        addConfigContext(file, context);
+      }
     }
+
+    for (const rule of FILE_RULES) {
+      if (existsSync(join(root, manifestDir, rule.path))) {
+        filesChecked.push(scopedPath(manifestDir, rule.path));
+        addDetected(detected, {
+          vendorSlug: rule.vendorSlug,
+          category: rule.category,
+          evidence: [scopedPath(manifestDir, rule.label)],
+          detectionMethods: ["file"],
+          confidence: rule.path === "prisma" ? "low" : "medium",
+          primary: rule.primary ?? true,
+        });
+      }
+    }
+
+    scanConfigFiles(root, manifestDir, detected, filesChecked);
+    scanPythonManifest(root, manifestDir, detected, context, filesChecked, warnings);
+    scanOtherLanguageManifests(root, manifestDir, context, filesChecked);
   }
 
-  for (const rule of FILE_RULES) {
-    if (existsSync(join(root, rule.path))) {
-      filesChecked.push(rule.path);
-      addDetected(detected, {
-        vendorSlug: rule.vendorSlug,
-        category: rule.category,
-        evidence: [rule.label],
-        detectionMethods: ["file"],
-        confidence: rule.path === "prisma" ? "low" : "medium",
-        primary: rule.primary ?? true,
-      });
-    }
-  }
-
-  scanEnvExample(root, detected, filesChecked);
-  scanConfigFiles(root, detected, filesChecked);
+  scanEnvFiles(root, manifestDirs, detected, filesChecked);
   scanSourceImports(root, detected, filesChecked);
 
   return {
     root,
+    repoUrl: options.repoUrl,
     tools: [...detected.values()]
       .filter((tool) => options.includeAll || tool.primary)
       .sort((a, b) =>
         `${a.category}:${a.vendorSlug}`.localeCompare(`${b.category}:${b.vendorSlug}`)
       ),
     context: sortContext(context),
-    unknownDependencies: unknownDependencies.sort((a, b) =>
+    unknownDependencies: [...unknownDependencies.values()].sort((a, b) =>
       a.packageName.localeCompare(b.packageName)
     ),
     filesChecked: [...new Set(filesChecked)].sort(),
@@ -269,6 +304,16 @@ function addPackageContext(
     { packages: ["eslint"], bucket: "devWorkflow", value: "ESLint" },
     { packages: ["prettier"], bucket: "devWorkflow", value: "Prettier" },
     { packages: ["tailwindcss"], bucket: "devWorkflow", value: "Tailwind CSS" },
+    { packages: ["shadcn", "shadcn-ui"], bucket: "devWorkflow", value: "shadcn/ui" },
+    { packages: ["@ai-sdk/openai", "openai"], bucket: "devWorkflow", value: "OpenAI SDK" },
+    { packages: ["@ai-sdk/anthropic"], bucket: "devWorkflow", value: "Anthropic SDK" },
+    { packages: ["@ai-sdk/mcp"], bucket: "devWorkflow", value: "MCP SDK" },
+    { packages: ["@anthropic-ai/sdk"], bucket: "devWorkflow", value: "Anthropic SDK" },
+    { packages: ["@modelcontextprotocol/sdk"], bucket: "devWorkflow", value: "MCP SDK" },
+    { packages: ["ai"], bucket: "devWorkflow", value: "Vercel AI SDK" },
+    { packages: ["@trigger.dev/sdk", "@trigger.dev/react"], bucket: "devWorkflow", value: "Trigger.dev" },
+    { packages: ["drizzle-orm", "drizzle-kit"], bucket: "devWorkflow", value: "Drizzle ORM" },
+    { packages: ["prisma", "@prisma/client"], bucket: "devWorkflow", value: "Prisma" },
   ];
 
   for (const rule of rules) {
@@ -290,10 +335,19 @@ function addPackageManagerContext(file: string, context: StackScanContext) {
   if (file === "pnpm-lock.yaml") context.packageManagers.push("pnpm");
   if (file === "package-lock.json") context.packageManagers.push("npm");
   if (file === "yarn.lock") context.packageManagers.push("Yarn");
-  if (file === "bun.lockb") {
+  if (file === "bun.lockb" || file === "bun.lock") {
     context.packageManagers.push("Bun");
     context.runtimes.push("Bun");
   }
+  if (file === "uv.lock") context.packageManagers.push("uv");
+  if (file === "poetry.lock") context.packageManagers.push("Poetry");
+  if (file === "Pipfile.lock") context.packageManagers.push("Pipenv");
+}
+
+function addConfigContext(file: string, context: StackScanContext) {
+  if (file.startsWith("next.config.")) context.frameworks.push("Next.js");
+  if (file.startsWith("tailwind.config.")) context.devWorkflow.push("Tailwind CSS");
+  if (file === "components.json") context.devWorkflow.push("shadcn/ui");
 }
 
 function sortContext(context: StackScanContext): StackScanContext {
@@ -313,13 +367,14 @@ function uniqueSorted(values: string[]) {
 
 function scanConfigFiles(
   root: string,
+  manifestDir: string,
   detected: Map<string, StackScanTool>,
   filesChecked: string[]
 ) {
   for (const rule of CONFIG_RULES) {
-    const filePath = join(root, rule.path);
+    const filePath = join(root, manifestDir, rule.path);
     if (!existsSync(filePath)) continue;
-    filesChecked.push(rule.path);
+    filesChecked.push(scopedPath(manifestDir, rule.path));
     const text = safeRead(filePath);
     if (!text) continue;
     for (const check of rule.patterns) {
@@ -327,7 +382,7 @@ function scanConfigFiles(
       addDetected(detected, {
         vendorSlug: check.vendorSlug,
         category: check.category,
-        evidence: [check.label],
+        evidence: [scopedPath(manifestDir, check.label)],
         detectionMethods: ["config"],
         confidence: "medium",
         primary: check.primary ?? true,
@@ -362,9 +417,216 @@ function scanSourceImports(
   }
 }
 
+function collectManifestDirs(root: string, warnings: string[]): string[] {
+  const dirs = new Set<string>([""]);
+  const packageJsonPath = join(root, "package.json");
+  if (existsSync(packageJsonPath)) {
+    try {
+      const pkg = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
+        workspaces?: unknown;
+      };
+      for (const pattern of packageWorkspacePatterns(pkg.workspaces)) {
+        for (const dir of expandWorkspacePattern(root, pattern)) dirs.add(dir);
+      }
+    } catch {
+      // The package parser will report the exact package.json error later.
+    }
+  }
+
+  const pnpmWorkspacePath = join(root, "pnpm-workspace.yaml");
+  if (existsSync(pnpmWorkspacePath)) {
+    for (const pattern of parsePnpmWorkspacePatterns(readFileSync(pnpmWorkspacePath, "utf8"))) {
+      for (const dir of expandWorkspacePattern(root, pattern)) dirs.add(dir);
+    }
+  }
+
+  for (const dir of collectNestedManifestDirs(root, warnings)) dirs.add(dir);
+
+  return [...dirs].sort((a, b) => a.localeCompare(b));
+}
+
+function packageWorkspacePatterns(workspaces: unknown): string[] {
+  if (Array.isArray(workspaces)) {
+    return workspaces.filter((item): item is string => typeof item === "string");
+  }
+  if (workspaces && typeof workspaces === "object") {
+    const packages = (workspaces as { packages?: unknown }).packages;
+    if (Array.isArray(packages)) {
+      return packages.filter((item): item is string => typeof item === "string");
+    }
+  }
+  return [];
+}
+
+function parsePnpmWorkspacePatterns(text: string): string[] {
+  const patterns: string[] = [];
+  let inPackages = false;
+  for (const line of text.split(/\r?\n/)) {
+    if (/^\s*packages\s*:/.test(line)) {
+      inPackages = true;
+      continue;
+    }
+    if (!inPackages) continue;
+    const match = line.match(/^\s*-\s*['"]?([^'"]+)['"]?\s*$/);
+    if (match) patterns.push(match[1]);
+    else if (/^\S/.test(line)) break;
+  }
+  return patterns;
+}
+
+function expandWorkspacePattern(root: string, pattern: string): string[] {
+  if (pattern.startsWith("!")) return [];
+  const clean = pattern.replace(/\/+$/g, "");
+  if (!clean.includes("*")) {
+    return existsSync(join(root, clean, "package.json")) ? [clean] : [];
+  }
+
+  const parts = clean.split("/");
+  const starIndex = parts.findIndex((part) => part.includes("*"));
+  if (starIndex === -1) return [];
+  const base = parts.slice(0, starIndex).join("/");
+  const suffix = parts.slice(starIndex + 1).join("/");
+  const baseDir = join(root, base);
+  if (!existsSync(baseDir)) return [];
+
+  return readdirSync(baseDir)
+    .filter((entry) => !entry.startsWith("."))
+    .map((entry) => (base ? join(base, entry, suffix) : join(entry, suffix)))
+    .filter((dir) => existsSync(join(root, dir, "package.json")));
+}
+
+function collectNestedManifestDirs(root: string, warnings: string[]): string[] {
+  const dirs: string[] = [];
+  const ignored = new Set([
+    "node_modules",
+    ".next",
+    "dist",
+    "build",
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+  ]);
+
+  function walk(relativeDir: string, depth: number) {
+    if (dirs.length >= 60 || depth > 3) return;
+    const absoluteDir = join(root, relativeDir);
+    let entries: string[];
+    try {
+      entries = readdirSync(absoluteDir);
+    } catch (error) {
+      warnings.push(
+        `Could not inspect ${relativeDir || "."}: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return;
+    }
+
+    for (const entry of entries) {
+      if (ignored.has(entry) || entry.startsWith(".")) continue;
+      const child = relativeDir ? join(relativeDir, entry) : entry;
+      const absolute = join(root, child);
+      let stat;
+      try {
+        stat = statSync(absolute);
+      } catch {
+        continue;
+      }
+      if (!stat.isDirectory()) continue;
+      if (existsSync(join(absolute, "package.json"))) dirs.push(child);
+      walk(child, depth + 1);
+    }
+  }
+
+  walk("", 0);
+  return dirs;
+}
+
+function scopedPath(scope: string, file: string) {
+  return scope ? join(scope, file) : file;
+}
+
+function upsertUnknownDependency(
+  unknownDependencies: Map<string, StackScanUnknownDependency>,
+  next: StackScanUnknownDependency
+) {
+  const key = next.packageName.toLowerCase();
+  const existing = unknownDependencies.get(key);
+  if (!existing) {
+    unknownDependencies.set(key, next);
+    return;
+  }
+
+  existing.version = existing.version || next.version;
+  existing.evidence = uniqueSorted([...existing.evidence, ...next.evidence]);
+}
+
+function shouldQueueUnknownDependency(
+  packageName: string,
+  dependencyType: StackScanUnknownDependency["dependencyType"]
+) {
+  const normalized = packageName.toLowerCase();
+  if (dependencyType === "devDependencies") return false;
+
+  const ignoredExact = new Set([
+    "react",
+    "react-dom",
+    "next",
+    "typescript",
+    "tsx",
+    "ts-node",
+    "vite",
+    "vitest",
+    "jest",
+    "playwright",
+    "@playwright/test",
+    "cypress",
+    "eslint",
+    "prettier",
+    "tailwindcss",
+    "postcss",
+    "autoprefixer",
+    "lucide-react",
+    "clsx",
+    "tailwind-merge",
+    "class-variance-authority",
+    "zod",
+    "date-fns",
+    "dotenv",
+    "simple-icons",
+    "tw-animate-css",
+    "commander",
+    "yargs",
+    "chalk",
+    "ora",
+    "concurrently",
+  ]);
+  if (ignoredExact.has(normalized)) return false;
+
+  const ignoredPrefixes = [
+    "@types/",
+    "@eslint/",
+    "eslint-",
+    "@typescript-eslint/",
+    "@vitejs/",
+    "@tailwindcss/",
+    "@testing-library/",
+    "@vitest/",
+    "@babel/",
+    "babel-",
+    "@swc/",
+    "@rollup/",
+    "rollup",
+    "prettier-",
+    "@radix-ui/",
+    "@base-ui/",
+  ];
+
+  return !ignoredPrefixes.some((prefix) => normalized.startsWith(prefix));
+}
+
 export function formatStackScan(
   result: StackScanResult,
-  options: { verbose?: boolean; syncHint?: boolean } = {}
+  options: { verbose?: boolean; syncHint?: boolean; syncing?: boolean } = {}
 ): string {
   const likelyWrongRoot =
     result.filesChecked.length === 0 &&
@@ -438,7 +700,9 @@ export function formatStackScan(
 
   lines.push(
     "",
-    options.syncHint
+    options.syncing
+      ? "Sync requested: this stack will be saved if known BuyAPI tools are detected."
+      : options.syncHint
       ? "Run buyapi scan --sync --yes to save this stack to your BuyAPI dashboard."
       : "Local-only: nothing was uploaded. Run buyapi scan --sync to save this private stack."
   );
@@ -510,16 +774,13 @@ function maxConfidence(
   return order[Math.max(order.indexOf(a), order.indexOf(b))];
 }
 
-function scanEnvExample(
+function scanEnvFiles(
   root: string,
+  manifestDirs: string[],
   detected: Map<string, StackScanTool>,
   filesChecked: string[]
 ) {
-  const envPath = join(root, ".env.example");
-  if (!existsSync(envPath)) return;
-  filesChecked.push(".env.example");
-
-  const text = readFileSync(envPath, "utf8");
+  const envFiles = collectEnvFiles(root, manifestDirs);
   const checks: Array<[RegExp, StackScanTool]> = [
     [/SUPABASE_/i, envTool("/database/supabase", "database", "SUPABASE_*")],
     [/CONVEX_/i, envTool("/database/convex", "database", "CONVEX_*")],
@@ -536,10 +797,144 @@ function scanEnvExample(
     [/SENDGRID_/i, envTool("/email/sendgrid", "email", "SENDGRID_*")],
     [/POSTMARK_/i, envTool("/email/postmark", "email", "POSTMARK_*")],
     [/AWS_SES_|SES_/i, envTool("/email/ses", "email", "SES_*")],
+    [/SENTRY_/i, envTool("/monitoring/sentry", "monitoring", "SENTRY_*")],
+    [/POSTHOG_/i, envTool("/analytics/posthog", "analytics", "POSTHOG_*")],
   ];
 
-  for (const [pattern, tool] of checks) {
-    if (pattern.test(text)) addDetected(detected, tool);
+  for (const envFile of envFiles) {
+    filesChecked.push(envFile);
+    const text = readFileSync(join(root, envFile), "utf8");
+    for (const [pattern, tool] of checks) {
+      if (!pattern.test(text)) continue;
+      addDetected(detected, {
+        ...tool,
+        evidence: tool.evidence.map((item) => `${envFile}:${item}`),
+      });
+    }
+  }
+}
+
+function collectEnvFiles(root: string, manifestDirs: string[]): string[] {
+  const names = [
+    ".env.example",
+    ".env.sample",
+    ".env.local.example",
+    ".env",
+    ".env.local",
+  ];
+  const files = new Set<string>();
+  for (const dir of manifestDirs) {
+    for (const name of names) {
+      const rel = scopedPath(dir, name);
+      if (existsSync(join(root, rel))) files.add(rel);
+    }
+  }
+  return [...files].sort((a, b) => a.localeCompare(b));
+}
+
+function scanPythonManifest(
+  root: string,
+  manifestDir: string,
+  detected: Map<string, StackScanTool>,
+  context: StackScanContext,
+  filesChecked: string[],
+  warnings: string[]
+) {
+  const manifests = ["requirements.txt", "pyproject.toml", "Pipfile"];
+  const packages = new Set<string>();
+
+  for (const manifest of manifests) {
+    const rel = scopedPath(manifestDir, manifest);
+    const path = join(root, rel);
+    if (!existsSync(path)) continue;
+    filesChecked.push(rel);
+    context.languages.push("Python");
+    if (manifest === "pyproject.toml") context.packageManagers.push("pyproject");
+    if (manifest === "Pipfile") context.packageManagers.push("Pipenv");
+
+    const text = safeRead(path);
+    if (!text) continue;
+    for (const packageName of parsePythonPackages(text, manifest)) {
+      packages.add(packageName);
+    }
+  }
+
+  if (packages.size === 0) return;
+  addPythonContext(packages, context);
+
+  for (const rule of PYTHON_PACKAGE_RULES) {
+    const matches = rule.packages.filter((packageName) => packages.has(packageName));
+    if (matches.length === 0) continue;
+    addDetected(detected, {
+      vendorSlug: rule.vendorSlug,
+      category: rule.category,
+      evidence: matches.map((packageName) => `${scopedPath(manifestDir, "python")}:package:${packageName}`),
+      detectionMethods: ["manifest"],
+      confidence: "high",
+      primary: true,
+    });
+  }
+
+  if (packages.has("openai")) context.devWorkflow.push("OpenAI SDK");
+  if (packages.has("anthropic")) context.devWorkflow.push("Anthropic SDK");
+  if (packages.has("pytest")) context.testing.push("pytest");
+  if (packages.has("ruff")) context.devWorkflow.push("Ruff");
+  if (packages.has("mypy")) context.devWorkflow.push("mypy");
+
+  if (packages.size > 500) {
+    warnings.push(`${scopedPath(manifestDir, "python")}: more than 500 Python package entries were ignored after context extraction.`);
+  }
+}
+
+function parsePythonPackages(text: string, manifest: string): string[] {
+  if (manifest === "pyproject.toml" || manifest === "Pipfile") {
+    return [...text.matchAll(/^\s*["']?([A-Za-z0-9_.-]+)["']?\s*[=~<>]/gm)].map(
+      (match) => normalizePythonPackage(match[1])
+    );
+  }
+
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+#.*$/, "").trim())
+    .filter((line) => line && !line.startsWith("#") && !line.startsWith("-"))
+    .map((line) => normalizePythonPackage(line.split(/[<>=~!;[]/)[0]))
+    .filter(Boolean);
+}
+
+function normalizePythonPackage(value: string) {
+  return value.trim().toLowerCase().replace(/_/g, "-");
+}
+
+function addPythonContext(packages: Set<string>, context: StackScanContext) {
+  if (packages.has("fastapi")) context.frameworks.push("FastAPI");
+  if (packages.has("django")) context.frameworks.push("Django");
+  if (packages.has("flask")) context.frameworks.push("Flask");
+  if (packages.has("pydantic")) context.devWorkflow.push("Pydantic");
+  if (packages.has("sqlalchemy")) context.devWorkflow.push("SQLAlchemy");
+}
+
+function scanOtherLanguageManifests(
+  root: string,
+  manifestDir: string,
+  context: StackScanContext,
+  filesChecked: string[]
+) {
+  const checks: Array<{
+    file: string;
+    language: string;
+    packageManager?: string;
+  }> = [
+    { file: "go.mod", language: "Go", packageManager: "Go modules" },
+    { file: "Gemfile", language: "Ruby", packageManager: "Bundler" },
+    { file: "Cargo.toml", language: "Rust", packageManager: "Cargo" },
+  ];
+
+  for (const check of checks) {
+    const rel = scopedPath(manifestDir, check.file);
+    if (!existsSync(join(root, rel))) continue;
+    filesChecked.push(rel);
+    context.languages.push(check.language);
+    if (check.packageManager) context.packageManagers.push(check.packageManager);
   }
 }
 
@@ -559,11 +954,19 @@ export function listRootFiles(root = process.cwd()): string[] {
 }
 
 function collectSourceFiles(root: string): string[] {
-  const starts = ["src", "app", "pages", "components", "convex"].filter((path) =>
-    existsSync(join(root, path))
-  );
+  const starts = collectSourceRoots(root);
   const files: string[] = [];
-  const ignored = new Set(["node_modules", ".next", "dist", "build", ".git"]);
+  const ignored = new Set([
+    "node_modules",
+    ".next",
+    "dist",
+    "build",
+    ".git",
+    ".venv",
+    "venv",
+    "__tests__",
+    "tests",
+  ]);
 
   function walk(relativeDir: string) {
     if (files.length >= 200) return;
@@ -575,7 +978,10 @@ function collectSourceFiles(root: string): string[] {
       const stat = statSync(absolutePath);
       if (stat.isDirectory()) {
         walk(relativePath);
-      } else if (/\.(tsx?|jsx?|mjs|cjs)$/.test(entry)) {
+      } else if (
+        /\.(tsx?|jsx?|mjs|cjs)$/.test(entry) &&
+        !/\.(test|spec)\.(tsx?|jsx?|mjs|cjs)$/.test(entry)
+      ) {
         files.push(relativePath);
       }
     }
@@ -583,6 +989,24 @@ function collectSourceFiles(root: string): string[] {
 
   for (const start of starts) walk(start);
   return files;
+}
+
+function collectSourceRoots(root: string): string[] {
+  const direct = ["src", "app", "pages", "components", "convex"].filter((path) =>
+    existsSync(join(root, path))
+  );
+  const nested: string[] = [];
+  for (const base of ["apps", "packages"]) {
+    const baseDir = join(root, base);
+    if (!existsSync(baseDir)) continue;
+    for (const entry of readdirSync(baseDir)) {
+      const rel = join(base, entry);
+      for (const child of ["src", "app", "pages", "components"]) {
+        if (existsSync(join(root, rel, child))) nested.push(join(rel, child));
+      }
+    }
+  }
+  return uniqueSorted([...direct, ...nested]);
 }
 
 function safeRead(path: string): string | null {

@@ -70,6 +70,7 @@ describe("parseCliCommand", () => {
       verbose: false,
       all: false,
       yes: false,
+      allowEmpty: false,
       projectName: undefined,
       stackSlug: undefined,
       summary: undefined,
@@ -96,6 +97,7 @@ describe("parseCliCommand", () => {
       verbose: false,
       all: false,
       yes: false,
+      allowEmpty: false,
       projectName: "My App",
       stackSlug: undefined,
       summary: "Launch stack",
@@ -125,6 +127,7 @@ describe("parseCliCommand", () => {
       verbose: true,
       all: true,
       yes: true,
+      allowEmpty: false,
       projectName: "Launch Stack",
       stackSlug: "launch-stack",
       summary: undefined,
@@ -141,6 +144,12 @@ describe("parseCliCommand", () => {
     expect(parseCliCommand(["whoami", "--json"])).toEqual({
       name: "whoami",
       json: true,
+      quiet: false,
+    });
+    expect(parseCliCommand(["whoami", "--quiet"])).toEqual({
+      name: "whoami",
+      json: false,
+      quiet: true,
     });
   });
 
@@ -191,9 +200,10 @@ describe("parseCliCommand", () => {
     expect(text).toContain("buyapi scan --sync");
     expect(text).toContain("buyapi compare <ids...>");
     expect(text).toContain("buyapi setup-skill <client>");
-    expect(text).toContain("buyapi-mcp is deprecated");
+    expect(text).toContain("buyapi-mcp remains as a compatibility binary");
     expect(text).toContain("scan previews locally first");
     expect(text).toContain("--dry-run");
+    expect(text).toContain("--allow-empty");
     expect(text).toContain("npm install -g buyapi");
   });
 });

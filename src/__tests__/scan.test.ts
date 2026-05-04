@@ -176,4 +176,79 @@ describe("scanStack", () => {
     ).not.toContain("/framework/nextjs");
     expect(scanStack(root).context.frameworks).toContain("Next.js");
   });
+
+  it("scans nested workspace package manifests", () => {
+    const root = mkdtempSync(join(tmpdir(), "buyapi-scan-"));
+    mkdirSync(join(root, "apps", "web"), { recursive: true });
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ workspaces: ["apps/*"] })
+    );
+    writeFileSync(
+      join(root, "apps", "web", "package.json"),
+      JSON.stringify({
+        dependencies: {
+          "@clerk/nextjs": "^1.0.0",
+          next: "^16.0.0",
+          react: "^19.0.0",
+          tailwindcss: "^4.0.0",
+        },
+      })
+    );
+    writeFileSync(join(root, "apps", "web", ".env.example"), "RESEND_API_KEY=\n");
+
+    const result = scanStack(root);
+    expect(result.filesChecked).toEqual(
+      expect.arrayContaining([
+        join("apps", "web", "package.json"),
+        join("apps", "web", ".env.example"),
+      ])
+    );
+    expect(result.tools.map((tool) => tool.vendorSlug)).toEqual(
+      expect.arrayContaining(["/auth/clerk", "/email/resend"])
+    );
+    expect(result.context.frameworks).toEqual(
+      expect.arrayContaining(["Next.js", "React"])
+    );
+    expect(result.context.devWorkflow).toContain("Tailwind CSS");
+  });
+
+  it("suppresses ordinary dev tooling from unknown candidates", () => {
+    const root = mkdtempSync(join(tmpdir(), "buyapi-scan-"));
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({
+        dependencies: {
+          "brand-new-ai-sdk": "0.0.1",
+          zod: "^4.0.0",
+        },
+        devDependencies: {
+          eslint: "^9.0.0",
+          prettier: "^3.0.0",
+          "some-build-plugin": "^1.0.0",
+        },
+      })
+    );
+
+    expect(scanStack(root).unknownDependencies.map((dep) => dep.packageName)).toEqual([
+      "brand-new-ai-sdk",
+    ]);
+  });
+
+  it("extracts Python stack context and known vendor SDKs", () => {
+    const root = mkdtempSync(join(tmpdir(), "buyapi-scan-"));
+    writeFileSync(
+      join(root, "requirements.txt"),
+      "fastapi==0.110.0\npytest==8.0.0\nstripe==10.0.0\nopenai==1.0.0\n"
+    );
+
+    const result = scanStack(root);
+    expect(result.context.languages).toContain("Python");
+    expect(result.context.frameworks).toContain("FastAPI");
+    expect(result.context.testing).toContain("pytest");
+    expect(result.context.devWorkflow).toContain("OpenAI SDK");
+    expect(result.tools.map((tool) => tool.vendorSlug)).toContain(
+      "/payments/stripe"
+    );
+  });
 });

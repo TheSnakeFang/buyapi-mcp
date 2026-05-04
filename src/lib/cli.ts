@@ -15,7 +15,7 @@ export type CliCommand =
   | { name: "setup-skill"; client?: SkillClient; print: boolean }
   | { name: "login"; apiKey?: string }
   | { name: "logout" }
-  | { name: "whoami"; json: boolean }
+  | { name: "whoami"; json: boolean; quiet: boolean }
   | { name: "help" }
   | { name: "version" }
   | {
@@ -26,6 +26,7 @@ export type CliCommand =
       verbose: boolean;
       all: boolean;
       yes: boolean;
+      allowEmpty: boolean;
       projectName?: string;
       stackSlug?: string;
       summary?: string;
@@ -110,7 +111,7 @@ export function parseCliCommand(argv: string[]): CliCommand {
   }
 
   if (command === "whoami") {
-    return { name: "whoami", json };
+    return { name: "whoami", json, quiet: Boolean(options.quiet) };
   }
 
   if (command === "scan") {
@@ -124,6 +125,7 @@ export function parseCliCommand(argv: string[]): CliCommand {
       verbose: Boolean(options.verbose),
       all: Boolean(options.all),
       yes: Boolean(options.yes),
+      allowEmpty: Boolean(options["allow-empty"] || options.force),
       projectName,
       stackSlug: options.stack,
       summary: options.summary,
@@ -214,6 +216,7 @@ Commands:
   buyapi login <api-key>             Store an existing API key for CLI sync
   buyapi logout                      Remove the stored API key
   buyapi whoami                      Show the active local BuyAPI key state
+  buyapi whoami --quiet              Exit 0 when logged in, 1 when not
   buyapi scan [dir]                  Scan locally, then optionally save stack
   buyapi scan --sync --yes           Scan and save without prompts
   buyapi search <query>              Search tools in the BuyAPI corpus
@@ -237,6 +240,8 @@ Options:
   --dry-run               Preview scan output without uploading
   --verbose               Include scanner evidence details
   --all                   Include lower-confidence supporting detections
+  --allow-empty           Save a stack even when no known tools were detected
+  --force                 Alias for --allow-empty
   --yes                   Skip sync confirmation prompt
   --constraints <text>    Budget, scale, compliance, or existing tools
   --users <n>             User count
@@ -247,7 +252,7 @@ Options:
   --revenue <n>           Monthly revenue in USD
   --json                  Print raw JSON
 
-Note: buyapi-mcp is deprecated on npm. Use npx buyapi for new installs.
+Use the buyapi package for new installs. buyapi-mcp remains as a compatibility binary.
 
 Install globally if you do not want to type npx:
   npm install -g buyapi
@@ -286,7 +291,10 @@ function parseOptions(argv: string[]) {
           "dry-run",
           "verbose",
           "all",
+          "allow-empty",
+          "force",
           "yes",
+          "quiet",
         ].includes(key)
       ) {
         options[key] = "true";

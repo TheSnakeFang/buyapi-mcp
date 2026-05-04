@@ -14,6 +14,7 @@ const {
   getEvidence,
   findSimilarStacks,
 } = await import("../lib/api.js");
+const { PACKAGE_VERSION } = await import("../lib/version.js");
 
 beforeEach(() => {
   mockFetch.mockReset();
@@ -257,6 +258,6 @@ describe("User-Agent header", () => {
     await searchVendors("test", "database");
 
     const [, init] = mockFetch.mock.calls[0];
-    expect(init.headers["User-Agent"]).toContain("buyapi/0.6.2");
+    expect(init.headers["User-Agent"]).toContain(`buyapi/${PACKAGE_VERSION}`);
   });
 });
