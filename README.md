@@ -166,6 +166,7 @@ What auth provider should I use for organizations, SSO later, and a generous fre
 ```
 
 Use implementation docs tools such as Context7 after the decision is made and the agent needs exact APIs, code examples, or version-specific setup steps.
+Treat BuyAPI cost output as directional estimate math from reviewed pricing claims; verify exact billing in first-party docs, vendor CLIs, or vendor MCPs before purchase or production decisions.
 
 ## Tips For Better Answers
 
@@ -191,7 +192,7 @@ Common launch-corpus IDs:
 
 ### `vendors.resolve`
 
-Search for vendors by query. Category is optional. Returns matching vendors with pricing summaries, positioning, confidence, and explicit unknown-corpus fallbacks.
+First stop for category-specific recommendations and vendor ID discovery. Category is optional. Returns matching vendors with pricing summaries, positioning, confidence, and explicit unknown-corpus fallbacks. For covered category queries, also returns a top-3 decision matrix with fit labels, tradeoffs, cost notes, freshness, and sources.
 
 ```
 Query: "I need a database for a real-time collaborative app"
@@ -202,7 +203,7 @@ Category: "database"
 
 ### `vendors.details`
 
-Get detailed vendor profile: concrete pricing numbers, free tier limits, scaling characteristics, known gotchas, source provenance, and head-to-head comparisons.
+Follow-up for one known vendor. Get detailed vendor profile: concrete pricing numbers, free tier limits, scaling characteristics, known gotchas, source provenance, and head-to-head comparisons.
 
 ```
 Vendor ID: /database/supabase
@@ -213,7 +214,7 @@ Query: "free tier limits for a side project"
 
 ### `vendors.evidence`
 
-Fetch recent reviewed evidence rows for a vendor, category, stack, or comparison.
+Trust follow-up. Fetch recent reviewed evidence rows for a vendor, category, stack, or comparison when the user asks why BuyAPI believes something or wants source/opinion/history signals.
 
 ```
 Subject type: "vendor"
@@ -224,7 +225,7 @@ Subject ID: /database/supabase
 
 ### `stacks.findSimilar`
 
-Find public stack profiles related to a vendor, or recent curated stack examples.
+Find reviewed public stack profiles related to a vendor, or recent curated stack examples. Use this for “who uses this?” or “what similar builders use?” questions, not as a generic recommendation tool.
 
 ```
 Vendor ID: /database/convex
@@ -234,7 +235,7 @@ Vendor ID: /database/convex
 
 ### `vendors.compare`
 
-Compare two or more specific vendors for a workload or decision.
+Compare two or more already-known vendors for a workload or decision.
 
 ```
 Vendor IDs: ["/database/convex", "/database/supabase", "/database/neon"]
@@ -245,7 +246,7 @@ Query: "realtime TypeScript SaaS with preview environments"
 
 ### `vendors.estimateCost`
 
-Run deterministic cost estimates from explicit workload inputs instead of leaving math to the model.
+Run directional BuyAPI cost estimates from explicit workload inputs instead of leaving math to the model. Missing fields become assumptions or unknowns; exact billing should still be verified in first-party docs, vendor CLIs, or vendor MCPs.
 
 ```
 Vendor IDs: ["/email/ses"]

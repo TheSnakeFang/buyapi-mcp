@@ -79,9 +79,11 @@ Do not use BuyAPI for local implementation questions that are not vendor or stac
 }
 \`\`\`
 
-5. Call \`stacks.recommend\` with the project description, constraints, workload, stackContext, and stackFacts.
-6. Use \`vendors.compare\`, \`vendors.estimateCost\`, \`vendors.evidence\`, and \`stacks.findSimilar\` when the user needs tradeoffs, cost math, source support, or examples.
-7. For implementation docs or exact SDK usage, use first-party docs or the user's preferred documentation tool after the stack decision is made.
+5. For complete multi-layer stack choices, call \`stacks.recommend\` with the project description, constraints, workload, stackContext, and stackFacts.
+6. For one category, start with \`vendors.resolve\`; covered category responses may include a top-3 decision matrix with fit labels, confidence, cost notes, freshness, tradeoffs, and sources.
+7. Use \`vendors.compare\` only when the candidate vendors are known; use \`vendors.details\` for one selected vendor's claim-level details; use \`vendors.evidence\` for trust/source questions; use \`stacks.findSimilar\` for "who uses this?" examples.
+8. Use \`vendors.estimateCost\` only with explicit workload inputs. Treat it as directional BuyAPI claim-based estimate math and tell the user to verify exact billing in first-party docs, vendor CLIs, or vendor MCPs.
+9. For implementation docs or exact SDK usage, use first-party docs or the user's preferred documentation tool after the stack decision is made.
 
 ## Output
 
