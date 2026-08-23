@@ -139,7 +139,8 @@ function readJsonFile(path: string): Record<string, unknown> {
     throw new Error(
       `Could not parse ${path}. Fix the JSON or move the file before running setup. ${
         error instanceof Error ? error.message : String(error)
-      }`
+      }`,
+      { cause: error }
     );
   }
 }
