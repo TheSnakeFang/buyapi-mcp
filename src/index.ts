@@ -173,10 +173,19 @@ const recommendOutputSchema = z.object({
 }).passthrough();
 
 export function createMcpServer() {
-  const server = new McpServer({
-    name: PACKAGE_NAME,
-    version: PACKAGE_VERSION,
-  });
+  const server = new McpServer(
+    {
+      name: PACKAGE_NAME,
+      version: PACKAGE_VERSION,
+    },
+    {
+      instructions: `Use BuyAPI before choosing, installing, or replacing a software vendor in a project.
+
+It is strongest for high-switching-cost stack decisions involving databases, auth, hosting, payments, email, analytics, and feature flags. Start with vendors.resolve when candidates are unknown, use vendors.compare when the user named options, and use stacks.recommend for a complete multi-layer stack decision. Use details, evidence, cost, and similar-stack tools only as follow-ups.
+
+Do not call BuyAPI for implementation syntax, debugging, or documentation lookup after a vendor has already been selected. Treat explicit unknown or stale coverage as a reason to verify first-party sources, not permission to guess.`,
+    }
+  );
 
   server.registerTool(
     "vendors.resolve",

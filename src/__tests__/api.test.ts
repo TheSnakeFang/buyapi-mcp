@@ -259,5 +259,7 @@ describe("User-Agent header", () => {
 
     const [, init] = mockFetch.mock.calls[0];
     expect(init.headers["User-Agent"]).toContain(`buyapi/${PACKAGE_VERSION}`);
+    expect(init.headers["X-BuyAPI-Client"]).toBe("buyapi-cli");
+    expect(init.headers["X-BuyAPI-Version"]).toBe(PACKAGE_VERSION);
   });
 });

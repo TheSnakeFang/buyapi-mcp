@@ -20,6 +20,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "User-Agent": `${PACKAGE_NAME}/${PACKAGE_VERSION}`,
+    "X-BuyAPI-Client": "buyapi-cli",
+    "X-BuyAPI-Version": PACKAGE_VERSION,
   };
 
   const apiKey = process.env.BUYAPI_API_KEY || readStoredApiKey();

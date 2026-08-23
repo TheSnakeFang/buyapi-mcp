@@ -3,7 +3,7 @@
   "name": "io.github.TheSnakeFang/buyapi-mcp",
   "version": "0.7.1",
   "title": "BuyAPI",
-  "description": "Vendor intelligence for AI coding agents choosing developer tools and stacks.",
+  "description": "Use before choosing or replacing a database, auth, hosting, payments, email, analytics, or feature-flag vendor. Returns sourced pricing, limits, tradeoffs, cost estimates, and stack recommendations for AI coding agents.",
   "websiteUrl": "https://buyapi.ai",
   "packages": [
     {
