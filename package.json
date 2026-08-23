@@ -1,7 +1,7 @@
 {
   "name": "buyapi",
   "mcpName": "io.github.TheSnakeFang/buyapi-mcp",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Sourced software-vendor and stack decisions for AI coding agents",
   "type": "module",
   "main": "dist/index.js",
