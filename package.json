@@ -56,12 +56,16 @@
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.2",
+    "vite": "8.0.16",
     "vitest": "^4.1.5"
   },
   "pnpm": {
     "overrides": {
-      "hono": "4.12.16",
-      "ip-address": "10.1.1"
+      "esbuild": "0.28.1",
+      "hono": "4.12.34",
+      "ip-address": "10.3.1",
+      "nanoid": "3.3.18",
+      "vite": "8.0.16"
     }
   }
 }
