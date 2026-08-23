@@ -52,6 +52,10 @@ describe("BuyAPI MCP server", () => {
     try {
       const { tools } = await client.listTools();
 
+      expect(client.getInstructions()).toContain(
+        "before choosing, installing, or replacing a software vendor"
+      );
+
       expect(tools.map((tool) => tool.name).sort()).toEqual(
         [...TOOL_NAMES].sort()
       );
