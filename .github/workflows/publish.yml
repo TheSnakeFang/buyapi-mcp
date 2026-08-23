@@ -3,11 +3,12 @@ name: Publish to npm
 on:
   release:
     types: [created]
+  workflow_dispatch:
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: read
       id-token: write
@@ -20,9 +21,12 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org
           cache: pnpm
+
+      - name: Install npm with trusted publishing support
+        run: npm install --global 'npm@^11.15.0'
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
@@ -46,10 +50,8 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - run: pnpm publish --no-git-checks
+      - run: npm publish --no-git-checks
         if: steps.npm.outputs.exists != 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish to MCP Registry
         run: |
