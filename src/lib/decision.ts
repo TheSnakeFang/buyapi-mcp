@@ -1,5 +1,7 @@
 import type {
   DecisionMatrixRow,
+  ClaimLedgerEntry,
+  CoverageSignal,
   VendorClaim,
   VendorCostEstimate,
   VendorProfile,
@@ -26,6 +28,122 @@ export function buildVendorClaims(vendor: VendorProfile): VendorClaim[] {
       staleAfter: addDays(vendor.lastUpdated, 90),
     },
   ];
+}
+
+export function buildClaimLedgerFromVendor(vendor: VendorProfile): ClaimLedgerEntry[] {
+  const claims = buildVendorClaims(vendor);
+  const pricingClaim = claims.find((claim) => claim.path.startsWith("pricing"));
+  const limitsClaim = claims.find((claim) => claim.path.startsWith("limits"));
+  const entries: ClaimLedgerEntry[] = [
+    {
+      id: claimId(vendor.slug, "pricing-model"),
+      type: "pricing",
+      text: `${vendor.name} pricing model is recorded as ${vendor.pricing.model}.`,
+      sourceUrls: sourceUrls(pricingClaim),
+      observedAt: pricingClaim?.observedAt ?? vendor.lastUpdated,
+      confidence: pricingClaim?.confidence ?? vendor.confidence,
+    },
+  ];
+
+  if (vendor.pricing.freeTier) {
+    entries.push({
+      id: claimId(vendor.slug, "free-tier"),
+      type: "pricing",
+      text: `${vendor.name} free tier is recorded as ${vendor.pricing.freeTier.exists ? "available" : "not available"} with limits: ${vendor.pricing.freeTier.keyLimits.join(", ") || "none recorded"}.`,
+      sourceUrls: sourceUrls(pricingClaim),
+      observedAt: pricingClaim?.observedAt ?? vendor.lastUpdated,
+      confidence: pricingClaim?.confidence ?? vendor.confidence,
+    });
+  }
+
+  for (const tier of vendor.pricing.tiers) {
+    entries.push({
+      id: claimId(vendor.slug, `tier-${tier.name}`),
+      type: "pricing",
+      text: `${vendor.name} ${tier.name} tier is recorded as ${tier.price}; inclusions: ${tier.keyInclusions.join(", ") || "none recorded"}.`,
+      sourceUrls: sourceUrls(pricingClaim),
+      observedAt: pricingClaim?.observedAt ?? vendor.lastUpdated,
+      confidence: pricingClaim?.confidence ?? vendor.confidence,
+    });
+  }
+
+  for (const limit of vendor.limits) {
+    entries.push({
+      id: claimId(vendor.slug, `limit-${limit.dimension}`),
+      type: "limit",
+      text: `${vendor.name} ${limit.dimension} limit is recorded as free: ${limit.free}; paid: ${limit.paid}${limit.notes ? `; notes: ${limit.notes}` : ""}.`,
+      sourceUrls: sourceUrls(limitsClaim),
+      observedAt: limitsClaim?.observedAt ?? vendor.lastUpdated,
+      confidence: limitsClaim?.confidence ?? vendor.confidence,
+    });
+  }
+
+  return entries;
+}
+
+export function buildClaimLedgerFromCostEstimate(
+  estimate: VendorCostEstimate
+): ClaimLedgerEntry[] {
+  const primary = estimate.sources[0];
+  return [
+    {
+      id: claimId(estimate.vendorId, "computed-cost"),
+      type: "cost-estimate",
+      text: `${estimate.vendorName} estimated monthly cost is ${estimate.display}. Basis: ${estimate.basis}.`,
+      sourceUrls: estimate.sources.map((source) => source.sourceUrl),
+      observedAt: primary?.observedAt ?? new Date().toISOString().slice(0, 10),
+      confidence: estimate.confidence,
+      value: estimate.monthlyUsd,
+      unit: "USD/month",
+      formula: estimate.basis,
+      computed: estimate.monthlyUsd !== null,
+      assumption: estimate.assumptions.length > 0,
+      inputs: {
+        assumptions: estimate.assumptions,
+        unknowns: estimate.unknowns,
+      },
+    },
+  ];
+}
+
+export function buildClaimLedgerFromDecisionMatrix(
+  rows: DecisionMatrixRow[]
+): ClaimLedgerEntry[] {
+  return uniqueLedger(
+    rows.flatMap((row) =>
+      row.sources.map((source) => ({
+        id: claimId(row.vendor, source.path),
+        type: source.path.startsWith("limits")
+          ? "limit"
+          : source.path.startsWith("pricing")
+            ? "pricing"
+            : "source",
+        text: `${row.vendorName}: ${source.summary}.`,
+        sourceUrls: [source.sourceUrl],
+        observedAt: source.observedAt,
+        confidence: source.confidence,
+      }))
+    )
+  );
+}
+
+export function coverageForVendors(args: {
+  vendors: VendorProfile[];
+  requestedVendorIds?: string[];
+  category?: string;
+}): CoverageSignal {
+  if (args.vendors.length === 0) {
+    return {
+      status: "unknown",
+      category: args.category,
+      message: "BuyAPI did not find matching reviewed vendor profiles for this request.",
+    };
+  }
+  return {
+    status: "covered",
+    category: args.category ?? args.vendors[0]?.category,
+    message: `BuyAPI has reviewed profile coverage for ${args.vendors.length} vendor(s) in this result.`,
+  };
 }
 
 export function estimateVendorCost(
@@ -360,4 +478,29 @@ function formatUsd(amount: number): string {
     minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
   })}`;
+}
+
+function sourceUrls(claim: VendorClaim | undefined): string[] {
+  return claim?.sourceUrl ? [claim.sourceUrl] : [];
+}
+
+function claimId(vendorId: string, label: string): string {
+  return `${vendorId.replace(/^\/+/, "").replaceAll("/", ".")}.${slugify(label)}`;
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
+}
+
+function uniqueLedger(claims: ClaimLedgerEntry[]): ClaimLedgerEntry[] {
+  const seen = new Set<string>();
+  return claims.filter((claim) => {
+    if (seen.has(claim.id)) return false;
+    seen.add(claim.id);
+    return true;
+  });
 }

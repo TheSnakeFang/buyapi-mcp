@@ -8,6 +8,8 @@ export type VendorCategory =
   | "payments"
   | "email"
   | "analytics"
+  | "feature-flags"
+  | "ui-components"
   | "storage"
   | "cms"
   | "search"
@@ -17,7 +19,13 @@ export interface VendorSearchResult {
   id: string;
   name: string;
   description: string;
-  pricingModel: "free" | "freemium" | "usage-based" | "flat-rate" | "per-seat";
+  pricingModel:
+    | "free"
+    | "freemium"
+    | "usage-based"
+    | "flat-rate"
+    | "per-seat"
+    | "unknown";
   bestFor: string;
   lastUpdated: string;
   confidence?: "high" | "medium" | "low";
@@ -26,6 +34,8 @@ export interface VendorSearchResult {
 
 export interface VendorSearchResponse {
   results: VendorSearchResult[];
+  decisionMatrix?: DecisionMatrixRow[];
+  claims?: ClaimLedgerEntry[];
   unknown?: UnknownCorpusResult;
 }
 
@@ -87,6 +97,29 @@ export interface VendorClaim {
   observedAt: string;
   confidence: "high" | "medium" | "low";
   staleAfter: string;
+}
+
+export interface ClaimLedgerEntry {
+  id: string;
+  type: "pricing" | "limit" | "cost-estimate" | "source" | "assumption";
+  text: string;
+  sourceUrls: string[];
+  observedAt: string;
+  confidence: "high" | "medium" | "low";
+  value?: number | string | null;
+  unit?: string;
+  formula?: string;
+  inputs?: Record<string, unknown>;
+  computed?: boolean;
+  assumption?: boolean;
+}
+
+export interface CoverageSignal {
+  status: "covered" | "partial" | "unknown" | "not-in-corpus";
+  category?: string;
+  vendorId?: string;
+  message: string;
+  suggestedNextSteps?: string[];
 }
 
 export interface EvidenceRow {
@@ -342,6 +375,8 @@ export interface StackRecommendation {
     swap: Record<string, { vendor: string; reason: string }>;
   } | null;
   sources?: VendorClaim[];
+  claims?: ClaimLedgerEntry[];
+  coverage?: CoverageSignal;
   decisionRecord?: StackDecisionRecord;
   generatedAt?: string;
 }

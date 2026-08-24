@@ -10,9 +10,17 @@ import type {
 } from "./types.js";
 import { buildVendorClaims } from "./decision.js";
 
-export function formatSearchResults(results: VendorSearchResult[]): string {
+export function formatSearchResults(
+  results: VendorSearchResult[],
+  decisionMatrix?: DecisionMatrixRow[],
+  query?: string
+): string {
   if (results.length === 0) {
     return "No vendors found matching your query. Try a different category or broader search terms.";
+  }
+
+  if (decisionMatrix?.length) {
+    return formatResolveDecision(decisionMatrix, query);
   }
 
   return results
@@ -21,6 +29,42 @@ export function formatSearchResults(results: VendorSearchResult[]): string {
         `**${v.name}** (${v.id})\n${v.description}\nPricing: ${v.pricingModel} | Best for: ${v.bestFor}\nLast updated: ${v.lastUpdated}`
     )
     .join("\n\n---\n\n");
+}
+
+function formatResolveDecision(rows: DecisionMatrixRow[], query?: string): string {
+  const [winner, ...alternatives] = rows;
+  const lines: string[] = [];
+  if (query?.trim()) lines.push(`Query context: ${query.trim()}`, "");
+  lines.push(
+    `Top fit: ${winner.vendorName} (${winner.fit}, ${winner.confidence} confidence)`,
+    winner.why,
+    `Cost note: ${winner.estimatedMonthlyCost}`,
+    `Freshness: ${winner.dataFreshness}`
+  );
+  if (winner.tradeoffs.length) {
+    lines.push(`Tradeoffs: ${winner.tradeoffs.join("; ")}`);
+  }
+  if (alternatives.length) {
+    lines.push(
+      "",
+      "Alternatives:",
+      ...alternatives.map(
+        (row, index) =>
+          `${index + 2}. ${row.vendorName} (${row.fit}, ${row.confidence} confidence) - ${row.why} Cost note: ${row.estimatedMonthlyCost}`
+      )
+    );
+  }
+  const sources = Array.from(
+    new Set(
+      rows.flatMap((row) =>
+        row.sources.map((source) => `${source.sourceUrl} (observed ${source.observedAt})`)
+      )
+    )
+  ).slice(0, 6);
+  if (sources.length) {
+    lines.push("", "Sources:", ...sources.map((source) => `- ${source}`));
+  }
+  return lines.join("\n");
 }
 
 export function formatUnknown(unknown: UnknownCorpusResult): string {
@@ -247,7 +291,9 @@ export function formatDecisionMatrix(rows: DecisionMatrixRow[]): string {
 
 export function formatCostEstimates(estimates: VendorCostEstimate[]): string {
   if (estimates.length === 0) return "No cost estimates available.";
-  return estimates
+  const intro =
+    "Directional BuyAPI estimate based on reviewed pricing claims and explicit workload inputs. Verify exact billing in first-party docs, vendor CLIs, or vendor MCPs before purchase or production decisions.";
+  const body = estimates
     .map((estimate) => {
       const lines = [
         `**${estimate.vendorName}** (${estimate.vendorId})`,
@@ -264,6 +310,7 @@ export function formatCostEstimates(estimates: VendorCostEstimate[]): string {
       return lines.join("\n");
     })
     .join("\n\n---\n\n");
+  return `${intro}\n\n${body}`;
 }
 
 export function formatEvidenceRows(rows: EvidenceRow[]): string {

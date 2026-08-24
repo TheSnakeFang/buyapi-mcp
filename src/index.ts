@@ -53,6 +53,12 @@ import {
   formatVendorProfile,
 } from "./lib/format.js";
 import { PACKAGE_NAME, PACKAGE_VERSION } from "./lib/version.js";
+import {
+  buildClaimLedgerFromCostEstimate,
+  buildClaimLedgerFromDecisionMatrix,
+  buildClaimLedgerFromVendor,
+  coverageForVendors,
+} from "./lib/decision.js";
 
 const workloadSchema = z
   .object({
@@ -70,7 +76,7 @@ const workloadSchema = z
     notes: z.string().optional(),
   })
   .describe(
-    "Explicit workload assumptions for deterministic cost estimates. Missing fields become assumptions, not fabricated precision."
+    "Explicit workload assumptions for directional cost estimates. Missing fields become assumptions, not fabricated precision."
   );
 
 const stackContextSchema = z
@@ -127,6 +133,9 @@ const readOnlyTool = {
 };
 
 const jsonArraySchema = z.array(z.unknown());
+const jsonObjectSchema = z.record(z.string(), z.unknown());
+const claimLedgerSchema = jsonArraySchema.optional();
+const coverageSchema = jsonObjectSchema.optional();
 
 const unknownCorpusOutputSchema = {
   kind: z.string().optional(),
@@ -138,11 +147,16 @@ const unknownCorpusOutputSchema = {
 
 const resolveOutputSchema = z.object({
   results: jsonArraySchema.optional(),
+  decisionMatrix: jsonArraySchema.optional(),
+  claims: claimLedgerSchema,
+  coverage: coverageSchema,
   ...unknownCorpusOutputSchema,
 }).passthrough();
 
 const detailsOutputSchema = z.object({
   sources: jsonArraySchema.optional(),
+  claims: claimLedgerSchema,
+  coverage: coverageSchema,
 }).passthrough();
 
 const evidenceOutputSchema = z.object({
@@ -155,11 +169,15 @@ const similarStacksOutputSchema = z.object({
 
 const compareOutputSchema = z.object({
   decisionMatrix: jsonArraySchema.optional(),
+  claims: claimLedgerSchema,
+  coverage: coverageSchema,
   ...unknownCorpusOutputSchema,
 }).passthrough();
 
 const estimateCostOutputSchema = z.object({
   estimates: jsonArraySchema.optional(),
+  claims: claimLedgerSchema,
+  coverage: coverageSchema,
   ...unknownCorpusOutputSchema,
 }).passthrough();
 
@@ -170,7 +188,23 @@ const recommendOutputSchema = z.object({
   alternativesConsidered: jsonArraySchema.optional(),
   unknowns: z.array(z.string()).optional(),
   sources: jsonArraySchema.optional(),
+  claims: claimLedgerSchema,
+  coverage: coverageSchema,
 }).passthrough();
+
+function formatClaimLedger(claims: Array<{ id: string; text: string; sourceUrls?: string[] }>) {
+  if (claims.length === 0) return "";
+  return [
+    "",
+    "Claim ledger:",
+    ...claims
+      .slice(0, 12)
+      .map(
+        (claim) =>
+          `- ${claim.id}: ${claim.text} Sources: ${claim.sourceUrls?.join(", ") || "assumption/unknown"}`
+      ),
+  ].join("\n");
+}
 
 export function createMcpServer() {
   const server = new McpServer(
@@ -190,9 +224,9 @@ Do not call BuyAPI for implementation syntax, debugging, or documentation lookup
   server.registerTool(
     "vendors.resolve",
     {
-      description: `Finds BuyAPI vendor IDs for a user question. Category is optional; provide it when known.
+      description: `First stop for category-specific vendor recommendations and vendor ID discovery. Finds BuyAPI vendor IDs for a user question; provide category when known.
 
-Use this for vendor discovery before vendors.details, or when the user asks which provider in a category fits their constraints. Do not use this for local coding/debugging/docs questions unless they involve choosing a software vendor or tool.
+Use this when the user asks which provider in a category fits their constraints. With a covered category, the response includes ranked results plus a top-3 decision matrix with fit labels, confidence, tradeoffs, cost notes, freshness, and sources. Do not use this for local coding/debugging/docs questions unless they involve choosing a software vendor or tool.
 If the category is outside BuyAPI's corpus, the tool returns an explicit "not in corpus yet" result instead of inventing vendors.`,
       inputSchema: {
         query: z
@@ -201,7 +235,9 @@ If the category is outside BuyAPI's corpus, the tool returns an explicit "not in
         category: z
           .string()
           .optional()
-          .describe("Optional category: database, auth, hosting, payments, email"),
+          .describe(
+            "Optional category: database, auth, hosting, payments, email, analytics, feature-flags"
+          ),
       },
       outputSchema: resolveOutputSchema,
       annotations: readOnlyTool,
@@ -210,13 +246,38 @@ If the category is outside BuyAPI's corpus, the tool returns an explicit "not in
       try {
         const data = await searchVendors(query, category);
         return {
-          structuredContent: structured(data.unknown ?? { results: data.results }),
+          structuredContent: structured(
+            data.unknown
+              ? {
+                  ...data.unknown,
+                  claims: [],
+                  coverage: {
+                    status: "not-in-corpus",
+                    category: data.unknown.requestedCategory,
+                    message: data.unknown.message,
+                    suggestedNextSteps: data.unknown.suggestedNextSteps,
+                  },
+                }
+              : {
+                  results: data.results,
+                  ...(data.decisionMatrix ? { decisionMatrix: data.decisionMatrix } : {}),
+                  claims: data.claims ?? [],
+                  coverage: {
+                    status: data.results.length > 0 ? "covered" : "unknown",
+                    category,
+                    message:
+                      data.results.length > 0
+                        ? `BuyAPI found ${data.results.length} matching vendor result(s). Fetch vendors.details for claim-level provenance.`
+                        : "BuyAPI did not find matching vendor results for this query.",
+                  },
+                }
+          ),
           content: [
             {
               type: "text",
               text: data.unknown
                 ? formatUnknown(data.unknown)
-                : formatSearchResults(data.results),
+                : formatSearchResults(data.results, data.decisionMatrix, query),
             },
           ],
         };
@@ -229,9 +290,9 @@ If the category is outside BuyAPI's corpus, the tool returns an explicit "not in
   server.registerTool(
     "vendors.details",
     {
-      description: `Retrieves detailed vendor information including pricing, features, limits, gotchas, comparisons, and source provenance.
+      description: `Follow-up tool for one known vendor. Retrieves detailed pricing, features, limits, gotchas, comparisons, and source provenance.
 
-Call vendors.resolve first unless the user already provided a BuyAPI vendor ID like /database/supabase.`,
+Call vendors.resolve first unless the user already provided a BuyAPI vendor ID like /database/supabase. Use this after a candidate is selected and the user needs claim-level pricing, limit, gotcha, or provenance details.`,
       inputSchema: {
         vendorId: z.string().describe("BuyAPI vendor ID, e.g. /database/supabase"),
         query: z
@@ -245,9 +306,20 @@ Call vendors.resolve first unless the user already provided a BuyAPI vendor ID l
     async ({ vendorId, query }) => {
       try {
         const vendor = await getVendorDetails(vendorId, query);
+        const claims = buildClaimLedgerFromVendor(vendor);
+        const coverage = coverageForVendors({
+          vendors: [vendor],
+          requestedVendorIds: [vendorId],
+          category: vendor.category,
+        });
         return {
-          structuredContent: structured(vendor),
-          content: [{ type: "text", text: formatVendorProfile(vendor) }],
+          structuredContent: structured({ ...vendor, claims, coverage }),
+          content: [
+            {
+              type: "text",
+              text: `${formatVendorProfile(vendor)}${formatClaimLedger(claims)}`,
+            },
+          ],
         };
       } catch (error) {
         return errorContent("Error fetching vendor details", error);
@@ -258,9 +330,9 @@ Call vendors.resolve first unless the user already provided a BuyAPI vendor ID l
   server.registerTool(
     "vendors.evidence",
     {
-      description: `Returns recent BuyAPI evidence rows for a vendor, category, stack, or comparison.
+      description: `Returns recent reviewed BuyAPI evidence rows for a vendor, category, stack, or comparison.
 
-Use this when the user asks why BuyAPI believes something, what sources support a vendor page, or what recent human/source signals exist.`,
+Use this when the user asks why BuyAPI believes something, what sources support a recommendation, or what recent human/source/opinion/history signals exist. This is a trust and provenance follow-up, not the first recommendation tool.`,
       inputSchema: {
         subjectType: z
           .enum(["vendor", "category", "stack", "comparison"])
@@ -289,9 +361,9 @@ Use this when the user asks why BuyAPI believes something, what sources support 
   server.registerTool(
     "stacks.findSimilar",
     {
-      description: `Finds public stack profiles related to a vendor or recent curated stack examples.
+      description: `Finds reviewed public stack examples related to a vendor, or recent curated stack examples.
 
-Use this when the user asks who uses a tool, what similar builders use, or wants examples of real stack combinations.`,
+Use this when the user asks who uses a tool, what similar builders use, or wants examples of real stack combinations. Do not use it as a generic recommendation tool.`,
       inputSchema: {
         vendorId: z
           .string()
@@ -318,9 +390,9 @@ Use this when the user asks who uses a tool, what similar builders use, or wants
   server.registerTool(
     "vendors.compare",
     {
-      description: `Compares two or more BuyAPI vendors for a specific workload or decision.
+      description: `Compares two or more already-known BuyAPI vendors for a specific workload or decision.
 
-Use this for head-to-head questions like "Convex vs Supabase vs Neon for a realtime SaaS" or "Stripe vs Paddle for a marketplace".`,
+Use this when the candidate set is known, for head-to-head questions like "Convex vs Supabase vs Neon for a realtime SaaS" or "Stripe vs Paddle for a marketplace". If the user has not named candidates, use vendors.resolve first.`,
       inputSchema: {
         vendorIds: z
           .array(z.string())
@@ -335,10 +407,24 @@ Use this for head-to-head questions like "Convex vs Supabase vs Neon for a realt
     async ({ vendorIds, query, workload }) => {
       try {
         const result = await compareVendors(vendorIds, query, workload);
+        const claims = buildClaimLedgerFromDecisionMatrix(result.decisionMatrix);
         return {
-          structuredContent: structured(result),
+          structuredContent: structured({
+            ...result,
+            claims,
+            coverage: {
+              status: result.decisionMatrix.length > 0 ? "covered" : "unknown",
+              message:
+                result.decisionMatrix.length > 0
+                  ? `BuyAPI compared ${result.decisionMatrix.length} vendor row(s).`
+                  : "BuyAPI did not return comparison coverage for this request.",
+            },
+          }),
           content: [
-            { type: "text", text: formatDecisionMatrix(result.decisionMatrix) },
+            {
+              type: "text",
+              text: `${formatDecisionMatrix(result.decisionMatrix)}${formatClaimLedger(claims)}`,
+            },
           ],
         };
       } catch (error) {
@@ -350,9 +436,9 @@ Use this for head-to-head questions like "Convex vs Supabase vs Neon for a realt
   server.registerTool(
     "vendors.estimateCost",
     {
-      description: `Produces deterministic monthly cost estimates from BuyAPI pricing data and explicit workload inputs.
+      description: `Produces directional monthly cost estimates from BuyAPI pricing data and explicit workload inputs.
 
-Use this when the user asks for cost math. Missing workload fields are returned as assumptions or unknowns instead of being hallucinated.`,
+Use this only when the user asks for cost math and provides explicit workload inputs. Missing workload fields are returned as assumptions or unknowns instead of being hallucinated. Treat results as BuyAPI claim-based estimate math; verify exact billing in first-party docs, vendor CLIs, or vendor MCPs before purchase or production decisions.`,
       inputSchema: {
         vendorIds: z
           .array(z.string())
@@ -370,10 +456,27 @@ Use this when the user asks for cost math. Missing workload fields are returned 
     async ({ vendorIds, category, workload }) => {
       try {
         const result = await estimateCosts({ vendorIds, category, workload });
+        const claims = result.estimates.flatMap((estimate) =>
+          buildClaimLedgerFromCostEstimate(estimate)
+        );
         return {
-          structuredContent: structured(result),
+          structuredContent: structured({
+            ...result,
+            claims,
+            coverage: {
+              status: result.estimates.length > 0 ? "covered" : "unknown",
+              category,
+              message:
+                result.estimates.length > 0
+                  ? `BuyAPI produced ${result.estimates.length} cost estimate(s).`
+                  : "BuyAPI did not find profiles to estimate for this request.",
+            },
+          }),
           content: [
-            { type: "text", text: formatCostEstimates(result.estimates) },
+            {
+              type: "text",
+              text: `${formatCostEstimates(result.estimates)}${formatClaimLedger(claims)}`,
+            },
           ],
         };
       } catch (error) {
@@ -387,7 +490,7 @@ Use this when the user asks for cost math. Missing workload fields are returned 
     {
       description: `Recommends a complete stack from BuyAPI's corpus with a structured decision matrix, cost estimate, assumptions, unknowns, alternatives, and sources.
 
-Use this when the user is starting a project or asks for a complete stack choice. Do not use this for local coding/debugging/docs questions that do not involve software or vendor selection. Do not call vendors.resolve first; this tool handles retrieval and ranking.`,
+Use this when the user is starting a project or asks for a complete multi-layer stack choice. Do not use this for local coding/debugging/docs questions that do not involve software or vendor selection. Do not call vendors.resolve first; this tool handles retrieval and ranking.`,
       inputSchema: {
         projectDescription: z.string().describe("What the user is building"),
         constraints: z

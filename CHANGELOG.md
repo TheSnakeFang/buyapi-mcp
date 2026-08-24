@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Changed
+
+- `vendors.resolve` now passes through an optional top-3 `decisionMatrix` for covered category queries while preserving existing `results`.
+- Tool descriptions now give agents clearer routing guidance for resolve/details/compare/evidence/similar-stacks/cost/recommend flows.
+- Cost estimate text now frames results as directional BuyAPI claim-based math and tells users to verify exact billing in first-party sources.
+
 ## [0.7.1] - 2026-05-04
 
 ### Added
