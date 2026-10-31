@@ -62,7 +62,7 @@
   "pnpm": {
     "overrides": {
       "esbuild": "0.28.1",
-      "hono": "4.12.34",
+      "hono": "4.13.14",
       "ip-address": "10.3.1",
       "nanoid": "3.3.18",
       "vite": "8.0.16"
