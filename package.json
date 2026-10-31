@@ -63,7 +63,7 @@
     "overrides": {
       "esbuild": "0.28.1",
       "hono": "4.12.34",
-      "ip-address": "10.3.1",
+      "ip-address": "10.7.5",
       "nanoid": "3.3.18",
       "vite": "8.0.16"
     }
